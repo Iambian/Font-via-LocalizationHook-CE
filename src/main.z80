@@ -1,0 +1,126 @@
+.assume adl=1
+
+#include "src/inc/ti84pce.inc"
+
+.org userMem-2
+.db tExtTok,tAsm84CeCmp
+
+ProgramStart:
+	bit 5,(iy+$35)
+	jr nz,fh_Uninstall
+;At the start, ensure that the program is first in archive before setting a hook
+	ld hl,fh_FileName
+	call _Mov9ToOP1
+	call _ChkFindSym
+	call _ChkInRam
+	jr nz,fh_IsArchived
+	call _Arc_Unarc
+	jr ProgramStart
+fh_IsArchived:
+;Set a hook at where the thing is in archive. Will persist until garbage collect
+	ex de,hl
+;Advance to actual data
+	ld de,9
+	add hl,de
+	ld e,(hl)
+	add hl,de
+;offset composed of: namesize, filesize, header, and dist_to_hook
+	ld de,1+2+2+(FontHook-ProgramStart)
+	add hl,de
+	call _SetFontHook
+	call _ClrLCDFull
+	ld hl,fh_Installed
+	jr fh_DrawString
+fh_Uninstall:
+	call _ClrFontHook
+	call _ClrLCDFull
+	ld hl,fh_Uninstalled
+fh_DrawString:
+	push hl
+		call _ClrLCDFull
+		call _HomeUp
+	pop hl
+	jp _PutS
+	
+fh_FileName:
+.db 5,"FONTHOOK",0
+fh_Uninstalled:
+.db "Un"
+fh_Installed:
+.db "installed font hook",0
+
+;Inputs: B=chr, HL=adrToChrFont, A= (0=smf, 1=lgf_fix, 2=smfwidth, 3=lgf_vwd)
+;Return value: NZ=cancel hook action (B,HL must be intact). Z=accept hook action
+;Return values: Z=accept hook action.
+;	Mode 0: HL in RAM where font data is copied to. prefer sFont_record.
+;	Mode 1: HL in RAM where font data is copied to. prefer lFont_record
+;	Mode 2: B is the width of the small font character.
+;	Mode 3: HL in RAM where font data is copied to. Must be offset by +1.
+FontHook:
+.db 83h
+	cp a,1
+	ret nz		;Don't run if not large font fixed-width.
+	ld a,'A'	;#### TEST RUN: ONLY AFFECT CHAR 'A' ####
+	cp b
+	ret nz		;#### TEST RUN: ONLY AFFECT CHAR 'A' ####
+	call __frameset0	;Sets HL to address after this call. IX was pushed.
+FontHookAddressGet:
+	pop ix
+	ld de,FontHookData-FontHookAddressGet
+	add hl,de
+	ld de,lFont_record+1
+	push de
+		ld bc,38
+		ldir
+		;Clear before and after
+		xor a
+		sbc hl,hl
+		ld (lFont_record-3),hl
+		ld (lFont_record+0),a
+		ld (lFont_record+1+28),hl
+		ld (lFont_record+1+28+3),a
+	pop hl
+	dec hl
+	dec hl
+	dec hl
+	dec hl
+	xor a
+	ret
+	
+	
+;Discoveries:
+;Seems normal mode:
+;Zero byte: left five bits are all that's active. The 3 lsbits in byte 0 are dead.
+;Firstbyte: left seven bits are active, but should only use left six.
+;Mathprint mode:
+;HL is ignored, always reads 2w14h from lFont_record+1. Unknown if other
+;condition checks would indicate that it is displaying from mathprint mode.
+;
+FontHookData:
+;chr A tester:
+.db %11111111,%11110100		;00
+.db %10000111,%01111000		;01
+.db %10111000,%00000100		;02
+.db %10101000,%00001000		;03
+.db %10110000,%00000100		;04
+.db %10000000,%00001000		;05
+.db %11000000,%00000100		;06
+.db %11000000,%00001000		;07
+.db %11000000,%00000100		;08
+.db %11000000,%00001000		;09
+.db %11000000,%00000100		;10
+.db %11000000,%00001000		;11
+.db %11101000,%01011100		;12
+.db %11010000,%10101100		;13  typical font entry ends here.
+.db %11111111,%11110100		;14
+.db %11111111,%11111000		;15
+.db %10101010,%10101010
+.db %01010101,%01010101
+.db %11001100,%11001100
+EndFontHook:
+
+
+
+
+.echo "Program size; ",$-ProgramStart,", hook size: ",$-FontHook
+
