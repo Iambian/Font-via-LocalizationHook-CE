@@ -60,17 +60,42 @@ FontHook:
 .db 83h
 	cp a,1
 	ret nz		;Don't run if not large font fixed-width.
-	ld a,'A'	;#### TEST RUN: ONLY AFFECT CHAR 'A' ####
-	cp b
-	ret nz		;#### TEST RUN: ONLY AFFECT CHAR 'A' ####
+;check ranges
+	ld a,b
+	cp a,'0'
+	jr c,fh_cancelhook
+	cp a,'9'+1
+	jr nc,fh_capletterange
+	sub a,'0'
+	jr fh_calcposition
+fh_capletterange:
+	cp a,'A'
+	jr c,fh_cancelhook
+	cp a,'Z'+1
+	jr nc,fh_lowercaserange
+	sub a,'A'
+	add a,10
+	jr fh_calcposition
+fh_lowercaserange:
+	cp a,'a'
+	jr c,fh_cancelhook
+	cp a,'z'+1
+	jr nc,fh_cancelhook
+	sub a,'a'
+	add a,10+26
+fh_calcposition:
 	call __frameset0	;Sets HL to address after this call. IX was pushed.
 FontHookAddressGet:
 	pop ix
 	ld de,FontHookData-FontHookAddressGet
 	add hl,de
+	ld c,a
+	ld b,28
+	mlt bc
+	add hl,bc
 	ld de,lFont_record+1
 	push de
-		ld bc,38
+		ld bc,28
 		ldir
 		;Clear before and after
 		xor a
@@ -86,7 +111,10 @@ FontHookAddressGet:
 	dec hl
 	xor a
 	ret
-	
+fh_cancelhook:
+	xor a
+	inc a
+	ret
 	
 ;Discoveries:
 ;Seems normal mode:
@@ -97,26 +125,7 @@ FontHookAddressGet:
 ;condition checks would indicate that it is displaying from mathprint mode.
 ;
 FontHookData:
-;chr A tester:
-.db %11111111,%11110100		;00
-.db %10000111,%01111000		;01
-.db %10111000,%00000100		;02
-.db %10101000,%00001000		;03
-.db %10110000,%00000100		;04
-.db %10000000,%00001000		;05
-.db %11000000,%00000100		;06
-.db %11000000,%00001000		;07
-.db %11000000,%00000100		;08
-.db %11000000,%00001000		;09
-.db %11000000,%00000100		;10
-.db %11000000,%00001000		;11
-.db %11101000,%01011100		;12
-.db %11010000,%10101100		;13  typical font entry ends here.
-.db %11111111,%11110100		;14
-.db %11111111,%11111000		;15
-.db %10101010,%10101010
-.db %01010101,%01010101
-.db %11001100,%11001100
+#include "tools/fontpacker/output.txt"
 EndFontHook:
 
 

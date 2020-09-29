@@ -9,6 +9,8 @@ def quit(msg):
 def tisource(img,glyphid):
     li = [0]*14*2
     w,h = img.size
+    if w>12: w = 12
+    if h>14: h = 14
     for y in range(h):
         for x in range(w):
             if not img.getpixel((x,y)):
@@ -20,9 +22,9 @@ def tisource(img,glyphid):
     for v1,v2 in zip(li[0::2],li[1::2]):
         t = '.db %'+format(v1,"08b")+",%"+format(v2,"08b")
         if s=='':
-            s += t+"   ;id "+glyphid+" ["+str(ord(glyphid))+"]\r\n"
+            s += t+"   ;id "+glyphid+" ["+str(ord(glyphid))+"]\n"
         else:
-            s += t + "\r\n"
+            s += t + "\n"
     return s
 
 #Could also use mode "L" for 8bpp gs. Change bg to 255 if you do this.
@@ -34,8 +36,8 @@ if len(sys.argv) > 2:   arg2 = sys.argv[2]
 if len(sys.argv) > 3:   arg3 = sys.argv[3]
 
 '''DEBUG'''
-arg1 = "comic.ttf"
-arg2 = 10
+arg1 = "comicbd.ttf"
+arg2 = 14
 '''ENDDEBUG'''
 
 if arg1:    fontname = arg1
