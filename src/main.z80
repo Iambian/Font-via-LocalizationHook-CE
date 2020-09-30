@@ -59,6 +59,7 @@ fh_Installed:
 ;$75  ;smallfont
 ;$76  ;largefont
 ;$77  ;smallfont width
+;$79  ;largefont in vw context
 FontHook:   ;THIS IS ACTUALLY A LOCALIZEHOOK
 .db 83h
 	cp $75
@@ -106,24 +107,24 @@ fh_outsiderange1:
 	jr fh_outsiderange
 	
 fh_issmall:
-	jr fh_outsiderange  ;#DEBUG
-	;We're not entirely sure what the format is for small font. Making guesses
 	ld hl,fh_smallfontdata-FontHook_BaseAddress
 	add hl,de
-	ld c,(14*2)+1
+	ld c,(12*2)+1
 	mlt bc
 	add hl,bc
 	ld de,sFont_record
-	ld bc,14*2
+	ld bc,12*2
 	ldir
 	xor a
+	sbc hl,hl
+	ld (sFont_record+1+(2*12)),a
+	ld (sFont_record+1+(2*12)+1),hl
 	ret
 	
 fh_issmwidth:
-	jr fh_outsiderange  ;#DEBUG
 	ld hl,fh_smallfontdata-FontHook_BaseAddress
 	add hl,de
-	ld c,(14*2)+1
+	ld c,(12*2)+1
 	mlt bc
 	add hl,bc
 	ld b,(hl)
@@ -189,28 +190,25 @@ fh_mapto_notupper:
 ;Mathprint mode:
 ;HL is ignored, always reads 2w14h from lFont_record+1. Unknown if other
 ;condition checks would indicate that it is displaying from mathprint mode.
+;The top and bottom nondisplayables are cleared on each run of the hook.
+;Just to make sure.
 ;
 fh_largefontdata:
 #include "tools/fontpacker/output.txt"
-fh_smallfontdata:
-.db 6
-.db %10000000,%00000000
-.db %11000000,%00000000
-.db %10100000,%00000000
-.db %10010000,%00000000
-.db %10001000,%00000000
-.db %10000100,%00000000
-.db %10000010,%00000000
-.db %10000001,%00000000
-.db %10000000,%10000000
-.db %10000000,%01000000
-.db %10000000,%00100000
-.db %10000000,%00010000
-.db %10000000,%00001000
-.db %10000000,%00000100
-.db %10000000,%00000010
-.db %10000000,%00000001
 
+;Small font: First byte is character width.
+;If character width is 8 or less, each row is only one byte.
+;If it's more than 8, then it's two bytes wide.
+;Width is enforced even if it's way out of range
+;	(e.g. 24 wide char only displays 16 bits width but spaced for 24 pixels)
+;Top two rows should be kept clean but they seem to display reliably. They are
+;encoded in the stuffs below.
+;The two rows below the bottom of the character (the ones past the 12th) don't
+;reliably display. They're not encoded and those bytes should be cleared each
+;time you run the hook. which is what we hopefully do.
+
+fh_smallfontdata:
+#include "tools/fontpacker/output2.txt"
 
 
 
@@ -223,9 +221,6 @@ fh_smallfontdata:
 
 
 EndFontHook:
-
-
-
 
 .echo "Program size; ",$-ProgramStart,", hook size: ",$-FontHook
 
