@@ -102,10 +102,10 @@ fh_islarge:
 	ld (lFont_record+1+28+3),a
 	ld hl,lFont_record-3
 	ret
-	
+;~~~~~~~~~~~~~~~~~~~~~~
 fh_outsiderange1:
 	jr fh_outsiderange
-	
+;~~~~~~~~~~~~~~~~~~~~~~
 fh_issmall:
 	ld hl,fh_smallfontdata-FontHook_BaseAddress
 	add hl,de
@@ -136,6 +136,51 @@ fh_issmwidth:
 		
 		
 fh_outsiderange:
+	cp $0A
+	jr nz,fh_isnotquasifunct
+	;---Quasi-functions
+;	call __frameset0
+;	ld de,fh_onebytestring-$
+;	pop ix
+;	add hl,de
+	push bc
+		ld c,a
+		xor a
+		;inc a
+		ld a,c
+	pop bc
+	ret
+fh_isnotquasifunct:
+	cp $3A
+	jr nz,fs_isnotconfigvars
+	;---Config vars
+	call __frameset0
+	ld de,fh_onebytestring-$
+	pop ix
+	add hl,de
+	xor a
+	inc a
+	ret
+fs_isnotconfigvars:
+	cp $3B
+	jr nz,fs_isnotdatatypes
+	;---Data types
+	call __frameset0
+	ld de,fh_zerotermstring-$
+	pop ix
+	add hl,de
+	xor a
+	inc a
+	ret
+fs_isnotdatatypes:
+	cp $42
+	jr c,fs_notmemtype
+	cp $44+1
+	jr nc,fs_notmemtype
+	;--Range of events for "Memory Cleared", "RAM Cleared", and "Defaults Set"
+	xor a	;set Z for defaults.
+	ret
+fs_notmemtype:
 ;It must do other hooky things because localization hooks suck.
 fh_hookdefault:
 	xor a
@@ -210,7 +255,10 @@ fh_largefontdata:
 fh_smallfontdata:
 #include "tools/fontpacker/output2.txt"
 
-
+fh_onebytestring:
+.db 1
+fh_zerotermstring:
+.db " ",0
 
 
 
