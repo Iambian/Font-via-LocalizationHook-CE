@@ -6,7 +6,7 @@
 .db tExtTok,tAsm84CeCmp
 
 ProgramStart:
-	bit 5,(iy+$35)
+	bit localizeHookActive,(iy+hookflags3)
 	jr nz,fh_Uninstall
 ;At the start, ensure that the program is first in archive before setting a hook
 	ld hl,fh_FileName
@@ -27,12 +27,12 @@ fh_IsArchived:
 ;offset composed of: namesize, filesize, header, and dist_to_hook
 	ld de,1+2+2+(FontHook-ProgramStart)
 	add hl,de
-	call _SetFontHook
+	call _SetLocalizeHook
 	call _ClrLCDFull
 	ld hl,fh_Installed
 	jr fh_DrawString
 fh_Uninstall:
-	call _ClrFontHook
+	call _ClrLocalizeHook
 	call _ClrLCDFull
 	ld hl,fh_Uninstalled
 fh_DrawString:
@@ -47,7 +47,7 @@ fh_FileName:
 fh_Uninstalled:
 .db "Un"
 fh_Installed:
-.db "installed font hook",0
+.db "installed localhook",0
 
 ;Inputs: B=chr, HL=adrToChrFont, A= (0=smf, 1=lgf_fix, 2=smfwidth, 3=lgf_vwd)
 ;Return value: NZ=cancel hook action (B,HL must be intact). Z=accept hook action
@@ -56,65 +56,131 @@ fh_Installed:
 ;	Mode 1: HL in RAM where font data is copied to. prefer lFont_record
 ;	Mode 2: B is the width of the small font character.
 ;	Mode 3: HL in RAM where font data is copied to. Must be offset by +1.
-FontHook:
+;$75  ;smallfont
+;$76  ;largefont
+;$77  ;smallfont width
+FontHook:   ;THIS IS ACTUALLY A LOCALIZEHOOK
 .db 83h
-	cp a,1
-	ret nz		;Don't run if not large font fixed-width.
-;check ranges
-	ld a,b
-	cp a,'0'
-	jr c,fh_cancelhook
-	cp a,'9'+1
-	jr nc,fh_capletterange
-	sub a,'0'
-	jr fh_calcposition
-fh_capletterange:
-	cp a,'A'
-	jr c,fh_cancelhook
-	cp a,'Z'+1
-	jr nc,fh_lowercaserange
-	sub a,'A'
-	add a,10
-	jr fh_calcposition
-fh_lowercaserange:
-	cp a,'a'
-	jr c,fh_cancelhook
-	cp a,'z'+1
-	jr nc,fh_cancelhook
-	sub a,'a'
-	add a,10+26
-fh_calcposition:
-	call __frameset0	;Sets HL to address after this call. IX was pushed.
-FontHookAddressGet:
-	pop ix
-	ld de,FontHookData-FontHookAddressGet
+	cp $75
+	jr c,fh_outsiderange1
+	cp $78
+	jr nc,fh_outsiderange1
+	push hl
+		call __frameset0
+FontHook_BaseAddress:
+		pop ix
+		push hl
+		pop iy
+		ld de,fh_mapto_A-FontHook_BaseAddress
+		add iy,de
+		call __indcall	;returns NZ if out of range
+		ld iy,flags
+		ex de,hl
+	pop hl
+	ret nz
+	dec c
+	jr z,fh_issmall
+	dec c
+	jr z,fh_islarge
+	dec c
+	jr z,fh_issmwidth
+fh_islarge:
+	ld hl,fh_largefontdata-FontHook_BaseAddress
 	add hl,de
-	ld c,a
-	ld b,28
+	ld c,14*2
 	mlt bc
 	add hl,bc
 	ld de,lFont_record+1
-	push de
-		ld bc,28
-		ldir
-		;Clear before and after
-		xor a
-		sbc hl,hl
-		ld (lFont_record-3),hl
-		ld (lFont_record+0),a
-		ld (lFont_record+1+28),hl
-		ld (lFont_record+1+28+3),a
-	pop hl
-	dec hl
-	dec hl
-	dec hl
-	dec hl
+	ld bc,14*2
+	ldir
+	xor a
+	sbc hl,hl
+	ld (lFont_record-3),hl
+	ld (lFont_record+0),a
+	ld (lFont_record+1+28),hl
+	ld (lFont_record+1+28+3),a
+	ld hl,lFont_record-3
+	ret
+	
+fh_outsiderange1:
+	jr fh_outsiderange
+	
+fh_issmall:
+	jr fh_outsiderange  ;#DEBUG
+	;We're not entirely sure what the format is for small font. Making guesses
+	ld hl,fh_smallfontdata-FontHook_BaseAddress
+	add hl,de
+	ld c,(14*2)+1
+	mlt bc
+	add hl,bc
+	ld de,sFont_record
+	ld bc,14*2
+	ldir
 	xor a
 	ret
-fh_cancelhook:
+	
+fh_issmwidth:
+	jr fh_outsiderange  ;#DEBUG
+	ld hl,fh_smallfontdata-FontHook_BaseAddress
+	add hl,de
+	ld c,(14*2)+1
+	mlt bc
+	add hl,bc
+	ld b,(hl)
+	xor a
+	ret
+	
+	
+	
+		
+		
+fh_outsiderange:
+;It must do other hooky things because localization hooks suck.
+fh_hookdefault:
 	xor a
 	inc a
 	ret
+fh_mapto_A:
+	sub $74	;so that dec c would be sfont, then lfont, then sfontw, then lfontF
+	ld c,a
+	ld a,b
+	cp '0'
+	jr c,fh_hookdefault
+	cp '9'+1
+	jr nc,fh_mapto_notnums
+	sub '0'
+	ld b,a
+	xor a
+	ret
+fh_mapto_notnums:
+	cp 'A'
+	jr c,fh_hookdefault
+	cp 'Z'+1
+	jr nc,fh_mapto_notupper
+	sub 'A'
+	add a,10
+	ld b,a
+	xor a
+	ret
+fh_mapto_notupper:
+	cp 'a'
+	jr c,fh_hookdefault
+	cp 'z'+1
+	jr nc,fh_hookdefault
+	sub 'a'
+	add a,10+26
+	ld b,a
+	xor a
+	ret
+	
+	
+		
+		
+		
+		
+		
+		
+	
 	
 ;Discoveries:
 ;Seems normal mode:
@@ -124,7 +190,25 @@ fh_cancelhook:
 ;HL is ignored, always reads 2w14h from lFont_record+1. Unknown if other
 ;condition checks would indicate that it is displaying from mathprint mode.
 ;
-FontHookData:
+fh_smallfontdata:
+;.db 6
+;.db %10000000,%00000000
+;.db %11000000,%00000000
+;.db %10100000,%00000000
+;.db %10010000,%00000000
+;.db %10001000,%00000000
+;.db %10000100,%00000000
+;.db %10000010,%00000000
+;.db %10000001,%00000000
+;.db %10000000,%10000000
+;.db %10000000,%01000000
+;.db %10000000,%00100000
+;.db %10000000,%00010000
+;.db %10000000,%00001000
+;.db %10000000,%00000100
+;.db %10000000,%00000010
+;.db %10000000,%00000001
+fh_largefontdata:
 #include "tools/fontpacker/output.txt"
 EndFontHook:
 

@@ -26,7 +26,8 @@ def tisource(img,glyphid):
         else:
             s += t + "\n"
     return s
-
+def smallfontsource(img,glyphid):
+    pass
 #Could also use mode "L" for 8bpp gs. Change bg to 255 if you do this.
 img = Image.new("1",(1024,40),1)    #wide image for large string, bg white
 draw = ImageDraw.Draw(img)
@@ -37,6 +38,7 @@ if len(sys.argv) > 3:   arg3 = sys.argv[3]
 
 '''DEBUG'''
 arg1 = "comicbd.ttf"
+arg1 = "klingon2.ttf"
 arg2 = 14
 '''ENDDEBUG'''
 
@@ -63,8 +65,11 @@ for idx,i in enumerate(thing):
     tdraw = ImageDraw.Draw(timg)
     tdraw.text((0,0),i,font=font)
     suboffset = ImageOps.invert(timg.convert("L")).getbbox()
-    offset = (suboffset[0],mainoffset[1],suboffset[2],suboffset[3])
-    ttimg = timg.crop(offset)
+    if suboffset:
+        offset = (suboffset[0],mainoffset[1],suboffset[2],suboffset[3])
+        ttimg = timg.crop(offset)
+    else:
+        ttimg = timg
     f.write(tisource(ttimg,i))
 f.close()
 print("File output")    
