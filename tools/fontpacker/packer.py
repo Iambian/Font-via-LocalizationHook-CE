@@ -81,6 +81,6 @@ def packit(fontname="klingon2.ttf",fontsize=14,resource=None,outputname="output.
     
 #Program starts here:    
 packit("klingon2.ttf",14,None,"output.txt",tisource)
-packit("klingon2.ttf",10,None,"output2.txt",smallfontsource)
+packit("klingon2.ttf",12,None,"output2.txt",smallfontsource)
 
 
