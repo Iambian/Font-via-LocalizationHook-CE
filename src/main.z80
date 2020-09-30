@@ -143,34 +143,23 @@ fh_outsiderange:
 ;	ld de,fh_onebytestring-$
 ;	pop ix
 ;	add hl,de
-	push bc
-		ld c,a
-		xor a
-		;inc a
-		ld a,c
-	pop bc
+	ld de,(hl)
+	ex de,hl
+	cp a,a
 	ret
 fh_isnotquasifunct:
 	cp $3A
 	jr nz,fs_isnotconfigvars
 	;---Config vars
-	call __frameset0
-	ld de,fh_onebytestring-$
-	pop ix
-	add hl,de
-	xor a
 	inc a
+	ld a,b
 	ret
 fs_isnotconfigvars:
 	cp $3B
 	jr nz,fs_isnotdatatypes
 	;---Data types
-	call __frameset0
-	ld de,fh_zerotermstring-$
-	pop ix
-	add hl,de
-	xor a
 	inc a
+	ld a,b
 	ret
 fs_isnotdatatypes:
 	cp $42
@@ -178,7 +167,7 @@ fs_isnotdatatypes:
 	cp $44+1
 	jr nc,fs_notmemtype
 	;--Range of events for "Memory Cleared", "RAM Cleared", and "Defaults Set"
-	xor a	;set Z for defaults.
+	cp a,a	;set Z for defaults.
 	ret
 fs_notmemtype:
 ;It must do other hooky things because localization hooks suck.
