@@ -244,14 +244,6 @@ fh_largefontdata:
 fh_smallfontdata:
 #include "tools/fontpacker/output2.txt"
 
-fh_onebytestring:
-.db 1
-fh_zerotermstring:
-.db " ",0
-
-
-
-
 
 
 
