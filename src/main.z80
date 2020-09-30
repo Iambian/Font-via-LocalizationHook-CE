@@ -139,10 +139,8 @@ fh_outsiderange:
 	cp $0A
 	jr nz,fh_isnotquasifunct
 	;---Quasi-functions
-;	call __frameset0
-;	ld de,fh_onebytestring-$
-;	pop ix
-;	add hl,de
+	;Undocumented method of default handling:
+	;the code below.
 	ld de,(hl)
 	ex de,hl
 	cp a,a
@@ -151,6 +149,8 @@ fh_isnotquasifunct:
 	cp $3A
 	jr nz,fs_isnotconfigvars
 	;---Config vars
+	;Undocumented method of default handling:
+	;Set NZ, then set A to B
 	inc a
 	ld a,b
 	ret
@@ -158,6 +158,8 @@ fs_isnotconfigvars:
 	cp $3B
 	jr nz,fs_isnotdatatypes
 	;---Data types
+	;Undocumented method of default handling:
+	;Set NZ, then set A to B
 	inc a
 	ld a,b
 	ret
