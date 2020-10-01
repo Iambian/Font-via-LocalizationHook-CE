@@ -67,4 +67,14 @@ For my stuff: Do what you want.
 
 For the other stuff: Comic Sans belongs to Microsoft, used without permission.
 
+Credits
+-------
+
+*	jacobly - thanks for all the technical help with the hooks including help on
+				pointing me in the right direction and stuff that isn't in
+				any documentation anywhere. Probably not even at TI.
+*	Cemetech - A site and a community. It's a great place to be.
+*	geekboy1011 - Provider of cherries and sanity. Also wouldn't have started
+				this whole let's-hook-into-all-the-things business without his
+				initial suggestion for a particular homescreen hook.
 
