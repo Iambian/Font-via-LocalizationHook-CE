@@ -10,6 +10,61 @@ Build Dependencies
 * [Python 3.x](https://www.python.org/)
 * PIL/Pillow (Python Imaging Library)
 
+Building a Font
+---------------
+1. Edit `packer.py` in the `builder` folder to configure the font you want to build.
+   * Assume the current directory is `builder` for all file/directory purposes.
+   * Scroll to the bottom of the file. It's where all the important stuff is.
+   * Set `encodings_in_my_json_file`
+     - To a JSON file with encodings. See examples in `builder/fonts`. You can make
+       your own to get more support for such things as accented characters and
+       mathematical symbols.
+     - To `None`. That'll default mapping in only alphanumeric characters.
+   * Modify the two `packit()` function calls.
+     - First argument is name of font file. I keep mine in `builder/fonts`
+     - Second argument is size of font, in points. This needs to be iteratively
+       tweaked to get better results; this tool can't automatically do this.
+2. Run `packfont.bat` in the `hook` folder. This will generate `encodings.asm`,
+   `lfont.asm`, and `sfont.asm` in the `hook/obj` folder. You can manually tweak these
+   files so long as you don't run this batch script again.
+3. Still in the `hook` folder? Great. Open a console window in this folder. You
+   can build two different font types:
+   * A font that can install itself, just like things were before this change.
+     - Run `build_standalone.bat <NAME>` where `NAME` is up to 8 characters, all
+       characters are uppercase, contains no non-alphanumeric characters, and does
+       not start with a number.
+   * A font that requires use of a font viewing program to install. Use this if
+     you have a viewer and don't want files to clutter your programs list.
+     - Run `build_resource.bat [NAME]` where `NAME` is a valid file name for
+       use on the calculator. You *must* supply a name. The name can be nearly
+       anything 8 characters or less. It must not contain spaces.
+4. Collect the resulting `.8xp` or `.8xv` file from the `hook/bin` folder.
+
+Editing a Font Encoding
+-----------------------
+To start, here's some helpful references you should keep open. You'll need them.
+- The `asciish.json` file in the `builder/font` folder, as a visual and example.
+- [Calculator character set](https://en.wikipedia.org/wiki/TI_calculator_character_sets)
+- [ASCII character set](https://en.wikipedia.org/wiki/ASCII#Character_set)
+- [Mathematical symbols](https://en.wikipedia.org/wiki/Mathematical_operators_and_symbols_in_Unicode)
+- [List of unicode characters](https://en.wikipedia.org/wiki/List_of_Unicode_characters)
+
+Configure a character set by creating a JSON file containing single large array.
+Inside that array may contain any number of the following items:
+
+- String
+  - Contains characters that map directly from ASCII to TI's encoding.
+  - Notable exceptions include `DOLLAR SIGN` and `LEFT SQUARE BRACKET`
+- Two-element array
+  - First: Unicode code for character, in decimal (Note: Codes noted as U+XXXX are
+    hexadecimal, even if it looks decimal. Use a calculator to convert hexadecimal
+    to decimal.)
+  - Second: The decimal codepoint in TI's encoding where the character defined in the
+    first element will go.
+
+Remember the name of the JSON file you created and use during step 1 of building your font
+
+
 Basic rundown of the TODO list
 ------------------------------
 
