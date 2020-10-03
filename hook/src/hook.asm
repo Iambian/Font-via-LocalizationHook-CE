@@ -40,6 +40,8 @@
 ;Output $42-$44 (Z)   HL = Reset type string
 ;Output $42-$44 (NZ)  HL = Reset type string, DE = coord (D=col,E=row)
 ;
+;Input  $D8     I haven't figured this out but it's triggered on catalog help edit
+;Output $D8     (Z)   Defaults
 ;-- Every other event we can preserve registers and emit NZ.
 
 LocalHookStart:
@@ -122,8 +124,6 @@ lh_HandleSFont:
       ldir
       xor   a,a
 	ret   ;bottom row is cleared for us. Thanks, _Load_Sfont.
-      
-
 
 lh_HandleOtherEvents:
       cp    a,$0A
@@ -132,10 +132,34 @@ lh_HandleOtherEvents:
       jr    z,lh_configvars
       cp    a,$3B
       jr    z,lh_datatypes
+      cp    a,$49
+      jr    z,lh_bugged49     ;matrix editor thing
+      cp    a,$4A
+      jr    z,lh_bugged4A     ;matrix editor thing
+      cp    a,$4B
+      jr    z,lh_bugged4B     ;matrix editor thing
+      cp    a,$4C
+      jr    z,lh_bugged4C     ;matrix editor thing. A really buggy bug there.
+;     
+      cp    a,$9F       ;catalog help. show "ARGUMENT FOR invNorm(" in fancy box
+      ret   z
+      cp    a,$C9       ;catalog help part 1 (token lookup)
+      ret   z
+      cp    a,$CA
+      ret   z
+      cp    a,$CB       ;catalog help part ? (draw help object)
+      ret   z
+      cp    a,$CC       ;catalog help part ?
+      ret   z
+      cp    a,$D8       ;catalog help part 2 (token render)
+      ret   z
+      cp    a,$7A       ;archive variable attempt failure message
+      ret   z
+;
       cp    a,$42
-      jr    c,lh_ReturnDefaults
+      jr    c,lh_TestDefaults
       cp    a,$44+1
-      jr    nc,lh_ReturnDefaults
+      jr    nc,lh_TestDefaults
 lh_resettype:
       cp    a,a
       ret
@@ -144,6 +168,46 @@ lh_quasifunct:
       ex    de,hl
       cp    a,a
       ret
+lh_TestDefaults:
+      push  bc
+            ld    c,a
+            ld    a,2
+            or    a
+            ;ld    (-1),a  ;breakpoint
+            xor   a
+            INC   A
+            ld    a,c
+      pop   bc
+      ret
+      
+lh_bugged49:
+      ld    a,10
+      ret
+lh_bugged4A:
+      ld    a,13
+      ret
+lh_bugged4B:
+      ld    a,12
+      ret
+;code that would fail to run because jump at return
+;isn't supposed to be unconditional
+lh_bugged4C:  ;bugged. Used in matrix editor.
+      ld    a,$0A
+      ld    (curCol),a
+      ld    a,(currListHighlight)
+      call  _DispListElementOffLA
+      ld    a,(curCol)
+      cp    a,$0B
+      ret   nz
+      ld    a,$20
+      jp  _PutC
+lh_mystery:
+      push  af
+            ld    a,2
+            ld    (-1),a
+      pop   af
+      ret
+
 
 
 .echo "Sizeof hook stub: ",$-LocalHookStart
