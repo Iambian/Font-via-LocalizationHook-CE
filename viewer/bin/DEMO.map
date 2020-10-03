@@ -1,0 +1,127 @@
+
+IEEE 695 OMF Linker Version 6.25 (11121301)
+Copyright (C) 1999-2008 Zilog, Inc. All Rights Reserved
+
+LINK MAP:
+
+DATE:      Tue Jul 18 21:53:20 2017
+PROCESSOR: assembler
+FILES:     obj/main.obj           obj/iconc.obj          
+           /home/waltz/CEdev/lib/ccleanup.obj
+           /home/waltz/CEdev/lib/cce.lib
+           /home/waltz/CEdev/lib/cshared.lib
+           /home/waltz/CEdev/lib/clinked.lib
+           /home/waltz/CEdev/lib/cstartup.obj
+
+
+COMMAND LIST:
+=============
+-FORMAT=INTEL32 -map -maxhexlen=64 -quiet -warnoverlap -xref -unresolved=fatal -sort ADDRESS=ascending -warn -NOdebug -NOigcase define __copy_code_to_ram = 0 range rom $000000 : $3FFFFF range ram $D00000 : $FFFFFF range bss $D031F6 : $D13FD6 change code is ram change data is ram change text is ram change strsect is text define __low_bss = base of bss define __len_bss = length of bss define __heaptop = (highaddr of bss) define __heapbot = (top of bss)+1 define __stack = $D1A87E locate .header at $D1A87F locate .icon at (top of .header)+1 locate .launcher at (top of .icon)+1 locate .libs at (top of .launcher)+1  locate .startup at (top of .libs)+1 locate .cleanup at (top of .startup)+1 locate .exit at (top of .cleanup)+1 locate code at (top of .exit)+1 locate data at (top of code)+1 locate text at (top of data)+1 bin/DEMO.hex = obj/main.obj,obj/iconc.obj,/home/waltz/CEdev/lib/ccleanup.obj,/home/waltz/CEdev/lib/cce.lib,/home/waltz/CEdev/lib/cshared.lib,/home/waltz/CEdev/lib/clinked.lib,/home/waltz/CEdev/lib/cstartup.obj 
+
+SPACE ALLOCATION:
+=================
+
+Space                     Base         Top      Size      Used    Unused
+------------------ ----------- ----------- --------- --------- ---------
+RAM                   D:D1A87F    D:D1A9EB   300000H      16DH   2FFE93H
+                                          (  3145728       365   3145363)
+
+
+SEGMENTS WITHIN SPACE:
+======================
+
+RAM                Type                Base        Top         Size
+------------------ ------------------- ----------- ----------- ---------
+.cleanup           normal data            D:D1A9CF    D:D1A9E2       14h
+.exit              normal data            D:D1A9E3    D:D1A9EA        8h
+.header            normal data            D:D1A87F    D:D1A881        3h
+.icon              normal data            D:D1A882    D:D1A993      112h
+.startup           normal data            D:D1A994    D:D1A9CE       3bh
+CODE               normal data            D:D1A9EB    D:D1A9EB        1h
+
+SEGMENTS WITHIN MODULES:
+========================
+
+Module: ..\SRC\MAIN.C (File: obj/main.obj) Version: 1:0 07/18/2017 21:53:20
+
+    Name                                        Base        Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: CODE                              D:D1A9EB    D:D1A9EB        1h
+
+
+Module: iconc.src (File: obj/iconc.obj) Version: 1:0 07/18/2017 21:53:20
+
+    Name                                        Base        Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: .icon                             D:D1A882    D:D1A993      112h
+
+
+Module: Z:\home\waltz\Documents\git\toolchain\src\startup\ccleanup.asm (File: /home/waltz/CEdev/lib/ccleanup.obj) Version: 1:0 07/18/2017 21:23:46
+
+    Name                                        Base        Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: .cleanup                          D:D1A9CF    D:D1A9E2       14h
+
+
+Module: Z:\home\waltz\Documents\git\toolchain\src\startup\cstartup.asm (File: /home/waltz/CEdev/lib/cstartup.obj) Version: 1:0 07/18/2017 21:23:46
+
+    Name                                        Base        Top      Size
+    --------------------------------------- ----------- ----------- ---------
+    Segment: .exit                             D:D1A9E3    D:D1A9EA        8h
+    Segment: .header                           D:D1A87F    D:D1A881        3h
+    Segment: .startup                          D:D1A994    D:D1A9CE       3bh
+
+EXTERNAL DEFINITIONS:
+=====================
+
+Symbol                             Address   Module          Segment
+-------------------------------- ----------- --------------- --------------------------------
+__len_bss                           00000000 (User Defined)
+__copy_code_to_ram                  00000000 (User Defined)
+__low_bss                           00000000 (User Defined)
+__heapbot                           00000001 (User Defined)
+__heaptop                           00D13FD6 (User Defined)
+__stack                             00D1A87E (User Defined)
+_errno                              D:D008DC cstartup        CODE                            
+_init                               D:D1A882 cstartup        .header                         
+__program_icon                      D:D1A887 iconc           .icon                           
+__program_description               D:D1A989 iconc           .icon                           
+__exit                              D:D1A9C1 cstartup        .startup                        
+__errsp                             D:D1A9C1 cstartup        .startup                        
+_exit                               D:D1A9E5 cstartup        .exit                           
+_main                               D:D1A9EB MAIN            CODE                            
+
+14 external symbol(s).
+
+SYMBOL CROSS REFERENCE:
+=======================
+Name                              Use         Module
+--------------------------------- ----------- -------------------------
+__len_bss                         Defined     LINKER
+                                  Referenced  Z:\home\waltz\Documents\git\toolchain\src\startup\cstartup.asm
+__copy_code_to_ram                Defined     LINKER
+__low_bss                         Defined     LINKER
+                                  Referenced  Z:\home\waltz\Documents\git\toolchain\src\startup\cstartup.asm
+__heapbot                         Defined     LINKER
+__heaptop                         Defined     LINKER
+__stack                           Defined     LINKER
+_errno                            Defined     Z:\home\waltz\Documents\git\toolchain\src\startup\cstartup.asm
+_init                             Defined     Z:\home\waltz\Documents\git\toolchain\src\startup\cstartup.asm
+__program_icon                    Defined     iconc.src
+__program_description             Defined     iconc.src
+__exit                            Defined     Z:\home\waltz\Documents\git\toolchain\src\startup\cstartup.asm
+__errsp                           Defined     Z:\home\waltz\Documents\git\toolchain\src\startup\cstartup.asm
+_exit                             Defined     Z:\home\waltz\Documents\git\toolchain\src\startup\cstartup.asm
+_main                             Defined     ..\SRC\MAIN.C
+                                  Referenced  Z:\home\waltz\Documents\git\toolchain\src\startup\cstartup.asm
+
+OUTPUT CHECKSUM
+===============
+bin/DEMO.hex         01237D
+
+
+
+END OF LINK MAP:
+================
+0 Errors
+0 Warnings
