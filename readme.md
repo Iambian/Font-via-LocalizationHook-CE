@@ -1,12 +1,12 @@
 Font-Through-Localization Hook for the CE
 =========================================
 
-** THIS BRANCH OF THE PROJECT IS INCOMPLETE. DOCUMENTATION MAY EITHER
-BE NON-EXISTANT OR INCORRECT **
+**THIS BRANCH OF THE PROJECT IS INCOMPLETE. DOCUMENTATION MAY EITHER
+BE NON-EXISTANT OR INCORRECT**
 
 Build Dependencies
 ------------------
-*     (CE C Toolchain)[https://github.com/CE-Programming/toolchain]
+*     [CE C Toolchain](https://github.com/CE-Programming/toolchain)
 *	[Python 3.x](https://www.python.org/)
 *	PIL/Pillow (Python Imaging Library)
 
