@@ -6,9 +6,9 @@ BE NON-EXISTANT OR INCORRECT**
 
 Build Dependencies
 ------------------
-*     [CE C Toolchain](https://github.com/CE-Programming/toolchain)
-*	[Python 3.x](https://www.python.org/)
-*	PIL/Pillow (Python Imaging Library)
+* [CE C Toolchain](https://github.com/CE-Programming/toolchain/)
+* [Python 3.x](https://www.python.org/)
+* PIL/Pillow (Python Imaging Library)
 
 Basic rundown of the TODO list
 ------------------------------
