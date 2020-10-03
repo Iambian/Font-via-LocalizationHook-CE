@@ -27,6 +27,9 @@ Basic rundown of the TODO list
 * The real purpose of this branch was to add a font (pre)viewer tool and to
   allow easier ways to load more than one different font onto the calculator
   at the same time. Requiring every font to be named "FONTHOOK" was getting old.
+* Turns out the catalog help is getting corrupted. Gotta go fish around the
+  OS to figure out what event that's triggered on and handle it too. Because
+  all the special newfangled things require all the special handling.
 
 Licenses
 --------
