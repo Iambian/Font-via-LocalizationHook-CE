@@ -42,7 +42,13 @@
 ;
 ;Input  $D8     I haven't figured this out but it's triggered on catalog help edit
 ;Output $D8     (Z)   Defaults
+;
+;There are other events that I've had to take care of. Which was all kinds of
+;wrong. A few of which involved more catalog help events. And the most wrongest
+;of all involved the matrix editor.
+;
 ;-- Every other event we can preserve registers and emit NZ.
+;
 
 LocalHookStart:
 .db $83
@@ -157,9 +163,9 @@ lh_HandleOtherEvents:
       ret   z
 ;
       cp    a,$42
-      jr    c,lh_TestDefaults
+      jr    c,lh_ReturnDefaults
       cp    a,$44+1
-      jr    nc,lh_TestDefaults
+      jr    nc,lh_ReturnDefaults
 lh_resettype:
       cp    a,a
       ret
@@ -168,18 +174,6 @@ lh_quasifunct:
       ex    de,hl
       cp    a,a
       ret
-lh_TestDefaults:
-      push  bc
-            ld    c,a
-            ld    a,2
-            or    a
-            ;ld    (-1),a  ;breakpoint
-            xor   a
-            INC   A
-            ld    a,c
-      pop   bc
-      ret
-      
 lh_bugged49:
       ld    a,10
       ret
