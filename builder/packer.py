@@ -132,11 +132,11 @@ def reencode(jsonfilename,outputfilename):
     return ''.join( [c[0] for c in mappings] )
 ''' ~~~~~~~~~~~~~~~~~~~~~~~~~~~ SCRIPT START ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ '''
 encodings_in_my_json_file = None
-encodings_in_my_json_file = "fonts/asciish.json"
+encodings_in_my_json_file = "encoding/asciish.json"
 
 encoding = reencode(encodings_in_my_json_file,"encodings.z80")
-packit("fonts/courbd.ttf",15,encoding,"lfont.z80",largefontsource)
-packit("fonts/cour.ttf",13,encoding,"sfont.z80",smallfontsource)
+packit("fonts/trebucbd.ttf",13,encoding,"lfont.z80",largefontsource)
+packit("fonts/trebuc.ttf",11,encoding,"sfont.z80",smallfontsource)
 
 
 
