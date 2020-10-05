@@ -15,7 +15,7 @@ ProgramStart:
       jr ProgramContinue
 LocalHookOffset:
 .db "FNTPK",0
-.dl   LocalHookStart-$  ;Used for font previewing program
+.dl   lh_DataStub-$  ;Used for font previewing program
 ProgramContinue:
       bit   localizeHookActive,(iy+hookflags3)
       jr    nz,pgm_Uninstall

@@ -19,18 +19,35 @@
 #include <stdlib.h>
 #include <string.h>
 
+/* External library headers */
+#include <debug.h>
+#include <keypadc.h>
+#include <graphx.h>
+#include <fileioc.h>
+#include <compression.h>
+
 /* Put your function prototypes here */
+
+
+void DrawLFontExample( void *data );	/*Externally defined */
+void DrawSFontExample( void *data );	/*Externally defined */
+
+
+
 
 /* Put all your globals here */
 
 void main(void) {
-    /* Fill in the body of the main function here */
-	//
-	//TODO: LOOKAT CEVIDIUM FOR OBJECT/FILE LOOKUP AND THINGS.
-	//OR DO THIS IN ASSEMBLY BECAUSE IT'S FASTER AND EASIER AND STUFF.
-	//OR GO BOTH WAYS TO PROVIDE A FANCY INTERFACE. YEAH. DO THAT.
-	//
-	//
+	uint8_t i;
+	
+	gfx_Begin();
+	
+	
+	DrawLFontExample(NULL);		/* Test. DO NOT ACTUALLY RUN */
+	DrawSFontExample(NULL);		/* Test. DO NOT ACTUALLY RUN */
+	
+	
+	gfx_End();
 }
 
 /* Put other functions here */

@@ -1,10 +1,32 @@
 .assume adl=1
 XDEF _DrawLFontExample
+XDEF _DrawSFontExample
+XDEF _InitVarSearch
+XDEF _VarSearchNext
+XDEF _VarSearchPrev
+XDEF _GetFontStruct
 
 
-DRAW_BUFFER EQU $E30014
+flags             EQU $D00080 ;As defined in ti84pce.inc
+_LoadPattern      EQU $021164 ;''
+_FindAlphaDn      EQU $020E90 ;''
+_FindAlphaUp      EQU $020E8C ;''
+_ChkFindSym       EQU $02050C ;''
+_ChkInRam         EQU $021F98 ;'' NC if in RAM, C if in arc
 
-fontdata_offset EQU 3
+prevDData         EQU $D005A1 ;''
+lFont_record      EQU $D005A4 ;''
+sFont_record      EQU $D005C5 ;''
+Op1               EQU $D005F8 ;''
+
+
+
+
+
+DRAW_BUFFER       EQU $E30014
+fontdata_offset   EQU 3
+
+
 
 ;Drawing area for large font (starting at prevDData). Offsets wrt fFont_record
 ;Filled in areas are what is guaranteed to render.
@@ -33,7 +55,7 @@ fontdata_offset EQU 3
 ;Line height at 18 requires 216h. Acceptable results with LH=16 req 192.
 ;Starting Y coord can be either 24 or 48, respectively.
 ;Starting X coord at 6. This can be calculated.
-;uint8_t DrawLFontExample( fontstruct *data )
+;void DrawLFontExample( fontstruct *data )
 ;fontstruct contains: encodings,lfont,sfont
 _DrawLFontExample:
       di
@@ -47,7 +69,7 @@ _DrawLFontExample:
             push  bc
                   xor   a,a
                   ld    (iy+$35),a  ;temporarily clears local and font hooks
-                  set   (iy+$32)    ;sets fracDrawLFont to get large font pattern
+                  set   2,(iy+$32)  ;sets fracDrawLFont to get large font pattern
                   push  hl
                         ;keep font base for ease of lookup and less register juggling
                         ld    de,$000100
@@ -144,9 +166,6 @@ DLFE_DLCL_Stage2Loop:
                   pop   bc
                   dec   b
                   jp    nz,DLFE_MainLoop
-DLFF_ExitSuccess:
-                  xor   a,a
-DLFE_Exit:
             pop   bc
             ld    (iy+$34),bc       ;restores hooks
       pop   ix
@@ -180,6 +199,8 @@ DLFE_Exit:
 ;WITH SOMETHING THAT WILL WORK WITH SMALL FONTS. BECAUSE THEY'RE JUST THAT
 ;DIFFERENT ONCE YOU GET PAST THE OVERHEAD OF WRITING THE PATTERN.
 ;
+;void DrawSFontExample( fontstruct *data )
+;fontstruct contains: encodings,lfont,sfont
 _DrawSFontExample:
       di
       ld    iy,flags
@@ -192,7 +213,7 @@ _DrawSFontExample:
             push  bc
                   xor   a,a
                   ld    (iy+$35),a  ;temporarily clears local and font hooks
-                  RES   (iy+$32)    ;resets fracDrawLFont to ensure smallfont
+                  res   2,(iy+$32)  ;resets fracDrawLFont to ensure smallfont
                   push  hl
                         ;keep font base for ease of lookup and less register juggling
                         ld    c,(hl)
@@ -235,82 +256,229 @@ DSFE_DrawPattern:
                               pop   hl
 DSFE_CurrentPosition EQU $+1
                               ld    hl,0  ;ok. not sure how to do positioning.
-                              
-                              
-                              ;
-                              ;The stuff following has to be adapated for smallfont.
-                              ;this has not been done yet because i need the sleep.
-                              ;They say sleep is for the weak.
-                              ;I guess I'm just tired.
-                              ;
-                              
-                              
-                              
-                              
                               ld    de,0  ;pre-clear
                               ld    a,L
                               inc   a
-                              cp    a,22
+                              cp    a,20
                               ld    L,a
                               jr    c,$+5
                               ld    L,e   ;L=0
                               inc   h
                               ld    (DSFE_CurrentPosition),hl
-                              ld    e,L   ;E=column
-                              ld    d,14  ;D=pix per column
-                              mlt   de    ;partial X-offset
-                              ld    L,160 ;L=scrnw/2, H=row
+                              
+                              ld    c,L   ;C=column
+                              ld    b,16  ;B=pix per column
+                              mlt   bc    ;partial X-offset. Also sets BCU to 0
+                              ld    L,14  ;H= line num (0-12) L=line height (res < 255)
                               mlt   hl
-                              add   hl,hl ;Y offset in pixels
-                              add   hl,hl
-                              add   hl,hl
-                              add   hl,hl
-                              add   hl,hl ;x16 = Y offset in 16px tall rows.
-                              add   hl,de ;Somewhat completed X+Y offset
+                              ld    h,160 ;half screen width
+                              mlt   hl
+                              add   hl,hl ;finish width
+                              add   hl,bc ;Somewhat completed X+Y offset
                               ld    de,(DRAW_BUFFER)
                               add   hl,de ;Somewhat complete screen address
-                              ld    de,(320*48)+6     ;Additional looks-good offsets
+                              ld    de,(320*48)+0     ;Additional looks-good offsets
                               add   hl,de ;Completed screen address
-                              ld    c,14  ;14 characters tall
-                              ld    de,lFont_record+1
-DSFE_DrawLargeCharacterLoop:
-                              ld    b,5   ;first byte
+                              
+                              ld    de,sFont_record   ;first byte is object width
+                              ld    c,12              ;characters are 12 px tall
                               ld    a,(de)
                               inc   de
-DSFE_DLCL_Stage1Loop:
-                              add   a,a
-                              jr    nc,$+4
-                              ld    (hl),0
-                              inc   hl
-                              djnz  DSFE_DLCL_Stage1Loop
-                              ld    b,7   ;second byte
-                              ld    a,(de)
-                              inc   de
-DSFE_DLCL_Stage2Loop:
-                              add   a,a
-                              jr    nc,$+4
-                              ld    (hl),0
-                              inc   hl
-                              djnz  DSFE_DLCL_Stage2Loop
-                              ld    (hl),0
-                              inc   hl
-                              ld    (hl),0
+                              cp    a,9
+                              jr    nc,DSFE_DrawThinChar
+                              sub   a,8
+                              ld    (DSFE_DrawWideCharWidth),a
+DSFE_DrawWideCharMainLoop:
+                              push  hl
+                                    ld    b,8
+                                    ld    a,(de)
+                                    inc   de
+DSFE_DrawWideCharLoop1:
+                                    add   a,a
+                                    jr    nc,$+4
+                                    ld    (hl),0
+                                    inc   hl
+                                    djnz  DSFE_DrawWideCharLoop1
+DSFE_DrawWideCharWidth EQU $+1
+                                    ld    b,0
+                                    ld    a,(de)
+                                    inc   de
+DSFE_DrawWideCharLoop2:
+                                    add   a,a
+                                    jr    nc,$+4
+                                    ld    (hl),0
+                                    inc   hl
+                                    djnz  DSFE_DrawWideCharLoop2
+                              pop   hl
                               ld    a,c
-                              ld    bc,320-13
+                              inc   b     ;B is always zero when reach here, so sets 1.
+                              ld    c,64  ;256+64 = 320. The number we're after.
                               add   hl,bc
                               ld    c,a
                               dec   c
-                              jr    nz,DSFE_DrawLargeCharacterLoop
+                              jr    nz,DSFE_DrawWideCharMainLoop
+                              jr    DFSE_FinishCharDraw
+DSFE_DrawThinChar:
+                              ld    (DSFE_DrawThinCharWidth),a
+DSFE_DrawThinCharMainLoop:
+                              push  hl
+DSFE_DrawThinCharWidth  EQU $+1
+                                    ld    b,0
+                                    ld    a,(de)
+                                    inc   de
+DSFE_DrawThinCharLoop:
+                                    add   a,a
+                                    jr    nc,$+4
+                                    ld    (hl),0
+                                    inc   hl
+                                    djnz  DSFE_DrawThinCharLoop
+                              pop   hl
+                              ld    a,c
+                              inc   b     ;B is always zero when reach here, so sets 1.
+                              ld    c,64  ;256+64 = 320. The number we're after.
+                              add   hl,bc
+                              ld    c,a
+                              dec   c
+                              jr    nz,DSFE_DrawThinCharMainLoop
+DFSE_FinishCharDraw:
                         pop   de
                   pop   bc
                   dec   b
                   jp    nz,DSFE_MainLoop
-DLFF_ExitSuccess:
-                  xor   a,a
-DSFE_Exit:
             pop   bc
             ld    (iy+$34),bc       ;restores hooks
       pop   ix
       ret
+      
+;======================================================================================
+;======================================================================================
+;======================================================================================
+
+;Warning: DO NOT RUN THE FOLLOWING IF InitVarSearch FAILED, ELSE INFINITE LOOP HAPPENS
+;void VarSearchNext(void)
+;void VarSearchPrev(void)
+
+
+
+
+;The following three routines requires Op1 to remain intact between runnings.
+;You could probably use Op4-Op6 as temporary storage if you're doing subsearching.
+;No inputs, but same outputs as VarSearchNext.
+
+;Return values: 0=success, $FF=failure
+;uint8_t InitVarSearch(uint8_t vartype) - $05=prog,$06=protprog, $15=appvar, $17=group
+_InitVarSearch:
+      ld    hl,3
+      add   hl,sp       ;should reset carry.
+      ld    a,(hl)
+      sbc   hl,hl
+      ld    l,a
+      ld    (Op1),hl
+initvarsearch_loop:
+      call  _FindAlphaUp
+      jr    c,initvarsearch_finish
+      call  _ChkFindSym
+      call  getfontstruct
+      jr    c,initvarsearch_loop
+initvarsearch_finish:
+      sbc   a,a
+      ret
+      
+;rawrf.
+_VarSearchNext:
+      call  _FindAlphaUp
+      jr    c,initvarsearch_finish
+      call  _ChkFindSym
+      call  getfontstruct
+      jr    c,_VarSearchNext
+      sbc   a,a
+      ret
+_VarSearchPrev:
+      call  _FindAlphaDn
+      jr    c,initvarsearch_finish
+      call  _ChkFindSym
+      call  getfontstruct
+      jr    c,_VarSearchPrev
+      sbc   a,a
+      ret
+      
+
+;Use immediately after a chkfindsym. CA=1 if not a font. Else HL= &fontstruct
+;Do not use this on a group. Use this on individual files inside a group (DE=adr)
+getfontstruct:
+      call  _ChkInRam
+      ex    de,hl
+      jr    nc,getfontstruct_inram
+      ld    de,9
+      add   hl,de
+      ld    e,(hl)
+      add   hl,de
+      ex    de,hl
+      inc   de
+getfontstruct_inram:
+      inc   de
+      inc   de
+      ld    hl,getfontstuct_header
+      call  strcmp
+      jr    nz,getfontstruct_failure
+      ld    hl,(hl)
+      add   hl,de
+      or    a,a
+      ret
+getfontstruct_failure:
+      or    a,a
+      sbc   hl,hl
+      scf
+      ret
+getfontstuct_header:
+.db $EF,$7B,$18,$09,"FNTPK",0
+
+;DE=str1, HL=str2. Z=match. NZ=nomatch.
+strcmp:
+      push  bc
+strcmp_loop:
+            ld    a,(de)
+            inc   de
+            cpi
+            jr    nz,strcmp_fail
+            or    a,a
+            jr    nz,strcmp_loop
+strcmp_fail:
+      pop   bc
+      ret
+            
+            
+      
+
+
+
+;Possible solution for group support: If a group is in Op1, run a search for
+;a file named in Op4 within the group? Idk, but it would need to be supported
+;as a subpart of FindAlphaUp/Dn combined with ChkFindSym/self rollout for such
+;as a search-within-group thing.
+;Input: Op1 = varname.
+;fonstruct* GetFontStruct(void)
+;Returns NULL if not found.
+_GetFontStruct:
+      call  _ChkFindSym
+      jp    getfontstruct
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+      
+
+
+
+
+
+
 
 
