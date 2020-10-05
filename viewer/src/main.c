@@ -1,9 +1,9 @@
 /*
  *--------------------------------------
- * Program Name:
- * Author:
- * License:
- * Description:
+ * Program Name: Font Pack Previewer
+ * Author: hehe
+ * License: do whatever
+ * Description: A font pack previewer
  *--------------------------------------
 */
 
@@ -25,6 +25,12 @@
 
 void main(void) {
     /* Fill in the body of the main function here */
+	//
+	//TODO: LOOKAT CEVIDIUM FOR OBJECT/FILE LOOKUP AND THINGS.
+	//OR DO THIS IN ASSEMBLY BECAUSE IT'S FASTER AND EASIER AND STUFF.
+	//OR GO BOTH WAYS TO PROVIDE A FANCY INTERFACE. YEAH. DO THAT.
+	//
+	//
 }
 
 /* Put other functions here */
