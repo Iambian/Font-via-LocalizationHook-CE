@@ -7,11 +7,11 @@
 # ** Add all shared library names to L **
 # ----------------------------
 
-NAME        ?= DEMO
+NAME        ?= FONTVIEW
 DEBUGMODE   ?= NDEBUG
 COMPRESSED  ?= NO
 ICON        ?= iconc.png
-DESCRIPTION ?= "C SDK Demo"
+DESCRIPTION ?= "Font Hook Previewer"
 
 L ?= 
 
