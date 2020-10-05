@@ -5,6 +5,12 @@ XDEF _InitVarSearch
 XDEF _VarSearchNext
 XDEF _VarSearchPrev
 XDEF _GetFontStruct
+XDEF _GetKbd
+XDEF _PrintOp1
+XDEF _PrintOp4
+
+XREF _gfx_PrintChar
+XREF _kb_Scan
 
 
 flags             EQU $D00080 ;As defined in ti84pce.inc
@@ -18,8 +24,11 @@ prevDData         EQU $D005A1 ;''
 lFont_record      EQU $D005A4 ;''
 sFont_record      EQU $D005C5 ;''
 Op1               EQU $D005F8 ;''
-
-
+Op2               EQU $D00603 ;''
+Op3               EQU $D0060E ;''
+Op4               EQU $D00619 ;''
+Op5               EQU $D00624 ;''
+Op6               EQU $D0062F ;''
 
 
 
@@ -355,8 +364,8 @@ DFSE_FinishCharDraw:
 ;======================================================================================
 
 ;Warning: DO NOT RUN THE FOLLOWING IF InitVarSearch FAILED, ELSE INFINITE LOOP HAPPENS
-;void VarSearchNext(void)
-;void VarSearchPrev(void)
+;uint8_t VarSearchNext(void)
+;uint8_t VarSearchPrev(void)
 
 
 
@@ -406,6 +415,7 @@ _VarSearchPrev:
 ;Use immediately after a chkfindsym. CA=1 if not a font. Else HL= &fontstruct
 ;Do not use this on a group. Use this on individual files inside a group (DE=adr)
 getfontstruct:
+      ret   c
       call  _ChkInRam
       ex    de,hl
       jr    nc,getfontstruct_inram
@@ -463,15 +473,43 @@ _GetFontStruct:
       call  _ChkFindSym
       jp    getfontstruct
       
+
+getkbd_prevkey: db 0
+;out: A=newkey
+_GetKbd:
+	CALL _kb_Scan
+	LD	 A,(16056338)
+	LD	 C,A
+	LD	 A,(16056350)
+	LD	 HL,getkbd_prevkey
+	OR	 A,C	;COMBINE KEYGROUPS 1 AND 7.
+	LD	 C,A
+	LD	 A,(HL)
+	XOR	 A,C
+	AND	 A,C	;(prevkey^curkey)&curkey = nextkey (return value)
+	LD	 (HL),C	;SAVE CURKEY TO PREVKEY
+	RET
       
-      
-      
-      
-      
-      
-      
-      
-      
+_PrintOp1:
+      ld    hl,Op1
+      jr    PrintNameInOp
+_PrintOp4:
+      ld    hl,Op4
+PrintNameInOp:
+      ld    b,8
+PrintNameInOpLoop:
+      ld    a,(hl)
+      inc   hl
+      or    a
+      ret   z
+      push  hl
+            ld    c,a
+            push  bc
+                  call _gfx_PrintChar
+            pop   bc
+      pop   hl
+      djnz PrintNameInOpLoop
+      ret
       
       
 
