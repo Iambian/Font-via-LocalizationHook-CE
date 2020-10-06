@@ -49,6 +49,12 @@ kb_key_t	GetKbd(void);
  */
 
 /* Put all your globals here */
+const uint8_t typelist[] = {0x06,0x15,0x17};
+const char *typenames[] = {"PROTPROG","APPVAR","GROUP"};
+const char controlchars[] = {18,29,30,31,0};
+const char updown[] = {18,32,32,0};
+const char leftright[] = {29,32,0};
+
 
 void main(void) {
 	uint8_t i;
@@ -56,6 +62,7 @@ void main(void) {
 	uint8_t topfile_result;
 	uint8_t groupfile_result;
 	uint8_t dosmallfont;
+	uint8_t typeindex;
 	kb_key_t k;
 	void *ptr;
       void *tempptr;
@@ -65,28 +72,37 @@ void main(void) {
 	gfx_SetDrawBuffer();
 	
 	dosmallfont = 1;
-	vartype = 0x06;		/* Start with protprogs*/
+	vartype = 0x06;
 	topfile_result = InitVarSearch(vartype);
 	groupfile_result = 0xFF;
+	typeindex = 0;
 	
 	k = kb_Yequ;	/* Key used to toggle lFont/sFont. Here, just priming screen */
 	while (k!=kb_Mode) {
 		if (k) {
 			/* Perform keyboard checking here */
-			if (k&kb_Yequ)    dosmallfont = !dosmallfont;
-                  if (k&kb_Left)    VarSearchPrev();
-                  if (k&kb_Right)   VarSearchNext();
-			
+			if (k&kb_Yequ)		dosmallfont = !dosmallfont;
+			if (k&kb_Left)		VarSearchPrev();
+			if (k&kb_Right)		VarSearchNext();
+			if (k&kb_Up && typeindex>0)		--typeindex;
+			if (k&kb_Down && typeindex<2)	++typeindex;
+			if (k&(kb_Up|kb_Down)) {
+				vartype = typelist[typeindex];
+				topfile_result = InitVarSearch(vartype);
+			}
 			
 			/* Perform lookup and graphics logic here */
 			gfx_FillScreen(0xDF);
-                  gfx_PrintStringXY("Font Previewing Program",80,4);
-                  gfx_HorizLine(0,14,320);
-			gfx_PrintStringXY("Locating filetype: PROTPRGM ",16,18);
-			gfx_SetTextXY(24,28);
+			gfx_PrintStringXY("Font Previewing Program",80,4);
+			gfx_HorizLine(0,14,320);
+			gfx_PrintStringXY(updown,16,18);
+			gfx_PrintString("Locating filetype: ");
+			gfx_PrintString(typenames[typeindex]);
+			gfx_SetTextXY(28,30);
 			if (topfile_result) {
 				gfx_PrintString("*** NO FONTS FOUND ***");
 			} else {
+				gfx_PrintString(leftright);
 				PrintOp1();
 				ptr = GetFontStruct();
 				if (ptr) {
@@ -97,6 +113,8 @@ void main(void) {
 					}
 				}
 			}
+			
+			
 			gfx_SwapDraw();
 		}
 		k = GetKbd();
