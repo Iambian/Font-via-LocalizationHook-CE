@@ -11,6 +11,9 @@ XDEF _PrintOp4
 
 XREF _gfx_PrintChar
 XREF _kb_Scan
+XREF _groupmain
+XREF _grouptemp
+XREF _groupcurvar
 
 
 flags             EQU $D00080 ;As defined in ti84pce.inc
@@ -20,8 +23,13 @@ _FindAlphaUp      EQU $020E8C ;''
 _ChkFindSym       EQU $02050C ;''
 _ChkInRam         EQU $021F98 ;'' NC if in RAM, C if in arc
 _PopRealO1        EQU $0205DC ;''
-_PushRealO1       EQU $020614 ;''
 _PopRealO2        EQU $0205D8 ;''
+_PopRealO4        EQU $0205D0 ;''
+_PushRealO1       EQU $020614 ;''
+_PushRealO4       EQU $020608 ;''
+
+
+
 
 prevDData         EQU $D005A1 ;''
 lFont_record      EQU $D005A4 ;''
@@ -358,6 +366,31 @@ DFSE_FinishCharDraw:
       pop   ix
       ret
       
+;---------------------------
+
+_PrintOp1:
+      ld    hl,Op1+1
+      jr    PrintNameInOp
+_PrintOp4:
+      ld    hl,Op4+1
+PrintNameInOp:
+      ld    b,8
+PrintNameInOpLoop:
+      ld    a,(hl)
+      inc   hl
+      or    a
+      ret   z
+      push  hl
+            ld    c,a
+            push  bc
+                  call _gfx_PrintChar
+            pop   bc
+      pop   hl
+      djnz PrintNameInOpLoop
+      ret
+      
+      
+      
 ;======================================================================================
 ;======================================================================================
 ;======================================================================================
@@ -380,13 +413,26 @@ _InitVarSearch:
       add   hl,sp       ;should reset carry.
       ld    a,(hl)
       sbc   hl,hl
+      ld    (_groupcurvar),hl
+      ld    (_groupmain),hl
       ld    l,a
       ld    (Op1),hl
       push  ix
 initvarsearch_loop:
-            call  _FindAlphaUp
+            ld    a,1
+            call  iteratefiles
+            
+            ;call  _FindAlphaUp
             jr    c,initvarsearch_finish
-            call  _ChkFindSym
+            ;call  _ChkFindSym
+            ;and   a,$3F
+            ;cp    a,$17
+            ;jr    nz,initvarsearch_normalvar
+            ;call  EnumGroup
+            ;or    a,a
+            ;jr    z,initvarsearch_loop    ;keep searching if group has no fonts
+            jr    initvarsearch_finish
+initvarsearch_normalvar:
             call  getfontstruct
             jr    c,initvarsearch_loop
 initvarsearch_finish:
@@ -394,45 +440,53 @@ initvarsearch_finish:
       sbc   a,a
       ret
       
-;rawrf.
+;----------------------------------------------------------------
 _VarSearchNext:
       push  ix
             call  _PushRealO1
+            call  _PushRealO4
 _VarSearchNextLoop:
-            call  _FindAlphaUp
+            ld    a,1
+            call  iteratefiles
+            
+            ;call  _FindAlphaUp
             jr    c,varsarch_filenotfound
-            call  _ChkFindSym
-            call  getfontstruct
-            jr    c,_VarSearchNextLoop
+            ;call  _ChkFindSym
+            ;call  getfontstruct
+            ;jr    c,_VarSearchNextLoop
             sbc   a,a
 varsearch_entryfound:
+            call  _PopRealO2  ;Evens out stack without overwriting OP1.
             call  _PopRealO2  ;Evens out stack without overwriting OP1.
       pop   ix
       ret
 varsarch_filenotfound:
+            call  _PopRealO4
             call  _PopRealO1
       pop   ix
       ret
+;----------------------------------------------------------------
       
       
 _VarSearchPrev:
       push  ix
             call  _PushRealO1
+            call  _PushRealO4
 _VarSearchPrevLoop:
-            call  _FindAlphaDn
+            ld    a,-1
+            call  iteratefiles
+            ;call  _FindAlphaDn
             jr    c,varsarch_filenotfound
-            call  _ChkFindSym
-            call  getfontstruct
-            jr    c,_VarSearchPrevLoop
+            ;call  _ChkFindSym
+            ;call  getfontstruct
+            ;jr    c,_VarSearchPrevLoop
             jr    varsearch_entryfound
       
+;----------------------------------------------------------------
 
-;Use immediately after a chkfindsym. CA=1 if not a font. Else HL= &fontstruct
-;Do not use this on a group. Use this on individual files inside a group (DE=adr)
-getfontstruct:
-      ret   c
+getdatasection:
       call  _ChkInRam
-      jr    nc,getfontstruct_inram
+      ret   nc
       ex    de,hl
       ld    de,9
       add   hl,de
@@ -440,7 +494,12 @@ getfontstruct:
       add   hl,de
       ex    de,hl
       inc   de
-getfontstruct_inram:
+      ret
+
+;Use immediately after a chkfindsym. CA=1 if not a font. Else HL= &fontstruct
+;Do not use this on a group. Use this on individual files inside a group (DE=adr)
+getfontstruct:
+      call  getdatasection
       inc   de
       inc   de
       ld    hl,getfontstuct_header
@@ -448,7 +507,8 @@ getfontstruct_inram:
       jr    nz,getfontstruct_failure
       ex    de,hl       ;HL=ptr to offset
       ld    de,(hl)     ;DE=offset
-      add   hl,de
+      ex    de,hl
+      add   hl,de       ;HL= &fontstruct, DE=location of offset table
       or    a,a
       ret
 getfontstruct_failure:
@@ -458,6 +518,7 @@ getfontstruct_failure:
       ret
 getfontstuct_header:
 .db $EF,$7B,$18,$0C,"FNTPK",0
+sizeof_fontheader equ $-getfontstuct_header
 
 ;DE=str1, HL=str2. Z=match. NZ=nomatch.
 strcmp:
@@ -488,7 +549,17 @@ strcmp_fail:
 ;Returns NULL if not found.
 _GetFontStruct:
       call  _ChkFindSym
-      jp    getfontstruct
+      and   a,$3F
+      cp    a,$17
+      jp    nz,getfontstruct
+      call  lookupgroupentry
+      ld    de,(hl)
+      ex    de,hl
+      add   hl,de
+      ret
+      
+      
+      
       
 
 getkbd_prevkey: db 0
@@ -507,28 +578,192 @@ _GetKbd:
 	LD	 (HL),C	;SAVE CURKEY TO PREVKEY
 	RET
       
-_PrintOp1:
-      ld    hl,Op1+1
-      jr    PrintNameInOp
-_PrintOp4:
-      ld    hl,Op4+1
-PrintNameInOp:
-      ld    b,8
-PrintNameInOpLoop:
-      ld    a,(hl)
+      
+;Carry if error condition encountered.
+;A and HL = numentries that are fonts (start of ARCVAT for name retrieval)
+EnumGroup:
+      call  getdatasection
+      or    a,a
+      sbc   hl,hl
+      ld    (_grouptemp),hl   ;clear out item count
+      ex    de,hl
+      ld    e,(hl)
       inc   hl
-      or    a
-      ret   z
+      ld    d,(hl)
+      inc   hl
       push  hl
-            ld    c,a
-            push  bc
-                  call _gfx_PrintChar
-            pop   bc
+            add   hl,de
+            ex    (sp),hl     ;stack: endaddress, HL=curaddress
+enumgroup_mainloop:
+            ld    a,(hl)
+            cp    a,$06
+            jr    z,enumgroup_keepgoing
+            cp    a,$15
+            jr    z,enumgroup_keepgoing
+enumgroup_stop:
       pop   hl
-      djnz PrintNameInOpLoop
+      xor   a,a
+      sbc   hl,hl
+      scf
       ret
-      
-      
+enumgroup_keepgoing:
+            push  hl          ;stack: address at archived VAT entry
+                  ld    bc,6
+                  add   hl,bc
+                  ld    c,(hl)
+                  inc   hl
+                  ld    de,Op4
+                  ld    (de),a
+                  inc   de
+                  ldir
+                  ld    (de),a
+                  ld    c,(hl)
+                  inc   hl
+                  ld    b,(hl)
+                  inc   hl
+                  push  hl
+                        add   hl,bc
+                        ex    (sp),hl  ;stack: end of variable, HL=SoF
+                        ld    de,getfontstuct_header
+                        call  strcmp
+                  pop   hl          ;EoV
+                  ex    (sp),hl     ;stack: EoV, HL=ARCVAT start
+                  jr    nz,enumgroup_notfont
+                  ex    de,hl
+                  ld    hl,_grouptemp
+                  ld    bc,(hl)
+                  inc   bc
+                  ld    (hl),bc
+                  ld    b,3
+                  mlt   bc
+                  add   hl,bc
+                  ld    (hl),de
+enumgroup_notfont:
+            pop   hl          ;End of Variable
+      pop   de                ;End of Group (should always be larger)
+      or    a,a
+      sbc   hl,de             ;When it isn't, it's time to quit.
+      jr    nc,enumgroup_finish
+      push  de
+            add   hl,de       ;Undo the subtract and keep trucking along
+            jr enumgroup_mainloop
+enumgroup_finish:
+      ld    a,(_grouptemp)
+      or    a,a
+      jr    z,enumgroup_stop+1
+      ld    hl,1
+      ld    (_groupcurvar),hl       ;if found, then start copying
+      ld    hl,_grouptemp           ;grouptemp to groupmain and
+      push  hl
+            ld    de,_groupmain           ;use that as the base for searches
+            ld    bc,3*256
+            ldir
+      pop   hl
+      ld    a,(hl)
+      ld    hl,(hl)
+      or    a,a
+      ret
+               
+
+
+;A= -1 for prev, 1 for next. Op1 for type
+iteratefiles:
+      ld    (iteratefiles_iterdir),a
+iteratefilesloop:
+      ld    a,(Op1)
+      cp    a,$17
+iteratefiles_nogrouptest:
+iteratefiles_iterdir    EQU   $+1
+      ld    b,0
+      jr    nz,iterate_over_filesystem
+      push  bc
+            ld    hl,(_groupmain)
+            ld    de,(_groupcurvar)
+            ;ld    a,2
+            ;ld    (-1),a
+            call  checkgroupcount
+      pop   bc
+      ret   nc    ;next object found if not carry, otherwise try to find next file
+iterate_over_filesystem:
+      call  iteratefiles_filesystraverse  ;alphaup or alphadn
+      ret   c                             ;no more files to find
+      call  _ChkFindSym                   ;if found, get details
+      ret   c
+      and   a,$3F
+      cp    a,$17
+      jr    nz,iteratefiles_normalfile    ;if not group, normalfile stuffs
+      call  EnumGroup                     ;Check if valid group and set
+      or    a,a                           ;up pointers if so
+      ld    a,(iteratefiles_iterdir)
+      ld    b,a
+      jr    z,iterate_over_filesystem     ;otherwise set B and check next file
+      inc   a
+      jr    z,iteratefiles_setlast
+      ld    hl,1
+      jr    iteratefiles_setgroupcurvar
+iteratefiles_setlast:
+      ld    hl,(_groupmain)
+iteratefiles_setgroupcurvar:
+      ld    (_groupcurvar),hl
+      jp    lookupgroupentry        ;ensure Op4 is correctly set before exiting
+iteratefiles_normalfile:
+      call  getfontstruct
+      ret   nc
+      jr    iteratefilesloop
+
+iteratefiles_filesystraverse:
+      inc   b
+      jp    z,_FindAlphaDn
+      jp    _FindAlphaUp
+
+;in: B= groupcurvar delta.
+;out: groupmain changed, C if out of range. Else HL=AddressOfOffsetFields
+checkgroupcount:
+      ld    hl,_groupcurvar
+      ld    a,(hl)
+      add   a,b
+      ld    b,a
+      jr    z,checkgroupcount_empty
+      ld    a,(_groupmain)
+      or    a,a
+      jr    z,checkgroupcount_empty
+      cp    a,b
+      ret   c
+      ld    (hl),b
+      jr    lookupgroupentry
+checkgroupcount_empty:
+      scf
+      ret
+
+;input:   _groupmain and _groupcurvar set correctly.
+;output: HL=start of offsets in header, Op4 set to var name. Carry reset.
+lookupgroupentry:
+      ld    de,(_groupcurvar)
+      ld    hl,_groupmain
+      ld    d,3
+      mlt   de
+      add   hl,de
+      ld    hl,(hl)
+      ld    de,Op4
+      ldi
+      ld    bc,6-1
+      add   hl,bc
+      ld    c,(hl)
+      inc   hl
+      ldir
+      xor   a,a
+      ld    (de),a
+      ld    de,2+sizeof_fontheader
+      add   hl,de
+      ret
+
+;---------------------------------------------------------------------------
+
+
+
+
+
+
 
 
 

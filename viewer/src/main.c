@@ -49,6 +49,9 @@ kb_key_t	GetKbd(void);
  */
 
 /* Put all your globals here */
+void *groupmain[257];
+void *grouptemp[257];
+unsigned int groupcurvar;
 const uint8_t typelist[] = {0x06,0x15,0x17};
 const char *typenames[] = {"PROTPROG","APPVAR","GROUP"};
 const char controlchars[] = {18,29,30,31,0};
@@ -104,6 +107,10 @@ void main(void) {
 			} else {
 				gfx_PrintString(leftright);
 				PrintOp1();
+				if (vartype==0x17) {
+					gfx_PrintString(" :: ");
+					PrintOp4();
+				}
 				ptr = GetFontStruct();
 				if (ptr) {
 					if (dosmallfont) {
