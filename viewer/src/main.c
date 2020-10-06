@@ -58,27 +58,32 @@ void main(void) {
 	uint8_t dosmallfont;
 	kb_key_t k;
 	void *ptr;
+      void *tempptr;
 	
 	gfx_Begin();
 	
 	gfx_SetDrawBuffer();
 	
-	dosmallfont = 0;
+	dosmallfont = 1;
 	vartype = 0x06;		/* Start with protprogs*/
 	topfile_result = InitVarSearch(vartype);
 	groupfile_result = 0xFF;
 	
-	k = kb_Yequ;	/* Unused key. Used to pump contents to screen */
+	k = kb_Yequ;	/* Key used to toggle lFont/sFont. Here, just priming screen */
 	while (k!=kb_Mode) {
 		if (k) {
 			/* Perform keyboard checking here */
-			
+			if (k&kb_Yequ)    dosmallfont = !dosmallfont;
+                  if (k&kb_Left)    VarSearchPrev();
+                  if (k&kb_Right)   VarSearchNext();
 			
 			
 			/* Perform lookup and graphics logic here */
 			gfx_FillScreen(0xDF);
-			gfx_PrintStringXY("FIND PROGRAM TYPE",16,4);
-			gfx_SetTextXY(24,14);
+                  gfx_PrintStringXY("Font Previewing Program",80,4);
+                  gfx_HorizLine(0,14,320);
+			gfx_PrintStringXY("Locating filetype: PROTPRGM ",16,18);
+			gfx_SetTextXY(24,28);
 			if (topfile_result) {
 				gfx_PrintString("*** NO FONTS FOUND ***");
 			} else {

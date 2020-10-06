@@ -1,9 +1,19 @@
+.assume adl=1
 ;Header for the standalone implementation of the hook.
 ;This provides something for the font previewer to latch onto
 ;when searching the filesystem for fonts to preview/load
 
 #include "src/ti84pce.inc"
+#ifdef USING_LOADER
+.org userMem-2
+#endif
 .db tExtTok,tAsm84CeCmp
-.db $18,$09,"FNTPK",0
-.dl lh_DataStub-$
+ProgramStart:
+	jr	ProgramContinue
+.db "FNTPK",0
+.dl lh_DataStub-$		;distance to the data section from this location
+.dl LocalHookStart-$	;distance to the hook section from this location
+ProgramContinue:
+#ifndef USING_LOADER
 .db $C9
+#endif

@@ -19,6 +19,9 @@ _FindAlphaDn      EQU $020E90 ;''
 _FindAlphaUp      EQU $020E8C ;''
 _ChkFindSym       EQU $02050C ;''
 _ChkInRam         EQU $021F98 ;'' NC if in RAM, C if in arc
+_PopRealO1        EQU $0205DC ;''
+_PushRealO1       EQU $020614 ;''
+_PopRealO2        EQU $0205D8 ;''
 
 prevDData         EQU $D005A1 ;''
 lFont_record      EQU $D005A4 ;''
@@ -72,9 +75,8 @@ _DrawLFontExample:
       ld    hl,fontdata_offset
       add   hl,sp
       ld    hl,(hl)
-      ld    hl,(hl)
       push  ix
-            ld    bc,(iy+$32)       ;fontflags and hooks
+            ld    bc,(iy+$34)       ;fontflags and hooks
             push  bc
                   xor   a,a
                   ld    (iy+$35),a  ;temporarily clears local and font hooks
@@ -122,7 +124,7 @@ DLFE_CurrentPosition EQU $+1
                               inc   a
                               cp    a,22
                               ld    L,a
-                              jr    c,$+5
+                              jr    c,$+4
                               ld    L,e   ;L=0
                               inc   h
                               ld    (DLFE_CurrentPosition),hl
@@ -162,11 +164,8 @@ DLFE_DLCL_Stage2Loop:
                               ld    (hl),0
                               inc   hl
                               djnz  DLFE_DLCL_Stage2Loop
-                              ld    (hl),0
-                              inc   hl
-                              ld    (hl),0
                               ld    a,c
-                              ld    bc,320-13
+                              ld    bc,320-12
                               add   hl,bc
                               ld    c,a
                               dec   c
@@ -176,6 +175,7 @@ DLFE_DLCL_Stage2Loop:
                   dec   b
                   jp    nz,DLFE_MainLoop
             pop   bc
+            res   2,(iy+$32)        ;docs says to reset this flag on exit
             ld    (iy+$34),bc       ;restores hooks
       pop   ix
       ret
@@ -216,9 +216,8 @@ _DrawSFontExample:
       ld    hl,fontdata_offset
       add   hl,sp
       ld    hl,(hl)
-      ld    hl,(hl)
       push  ix
-            ld    bc,(iy+$32)       ;fontflags and hooks
+            ld    bc,(iy+$34)       ;hooks
             push  bc
                   xor   a,a
                   ld    (iy+$35),a  ;temporarily clears local and font hooks
@@ -270,7 +269,7 @@ DSFE_CurrentPosition EQU $+1
                               inc   a
                               cp    a,20
                               ld    L,a
-                              jr    c,$+5
+                              jr    c,$+4
                               ld    L,e   ;L=0
                               inc   h
                               ld    (DSFE_CurrentPosition),hl
@@ -294,7 +293,7 @@ DSFE_CurrentPosition EQU $+1
                               ld    a,(de)
                               inc   de
                               cp    a,9
-                              jr    nc,DSFE_DrawThinChar
+                              jr    c,DSFE_DrawThinChar
                               sub   a,8
                               ld    (DSFE_DrawWideCharWidth),a
 DSFE_DrawWideCharMainLoop:
@@ -383,33 +382,49 @@ _InitVarSearch:
       sbc   hl,hl
       ld    l,a
       ld    (Op1),hl
+      push  ix
 initvarsearch_loop:
-      call  _FindAlphaUp
-      jr    c,initvarsearch_finish
-      call  _ChkFindSym
-      call  getfontstruct
-      jr    c,initvarsearch_loop
+            call  _FindAlphaUp
+            jr    c,initvarsearch_finish
+            call  _ChkFindSym
+            call  getfontstruct
+            jr    c,initvarsearch_loop
 initvarsearch_finish:
+      pop   ix
       sbc   a,a
       ret
       
 ;rawrf.
 _VarSearchNext:
-      call  _FindAlphaUp
-      jr    c,initvarsearch_finish
-      call  _ChkFindSym
-      call  getfontstruct
-      jr    c,_VarSearchNext
-      sbc   a,a
+      push  ix
+            call  _PushRealO1
+_VarSearchNextLoop:
+            call  _FindAlphaUp
+            jr    c,varsarch_filenotfound
+            call  _ChkFindSym
+            call  getfontstruct
+            jr    c,_VarSearchNextLoop
+            sbc   a,a
+varsearch_entryfound:
+            call  _PopRealO2  ;Evens out stack without overwriting OP1.
+      pop   ix
       ret
+varsarch_filenotfound:
+            call  _PopRealO1
+      pop   ix
+      ret
+      
+      
 _VarSearchPrev:
-      call  _FindAlphaDn
-      jr    c,initvarsearch_finish
-      call  _ChkFindSym
-      call  getfontstruct
-      jr    c,_VarSearchPrev
-      sbc   a,a
-      ret
+      push  ix
+            call  _PushRealO1
+_VarSearchPrevLoop:
+            call  _FindAlphaDn
+            jr    c,varsarch_filenotfound
+            call  _ChkFindSym
+            call  getfontstruct
+            jr    c,_VarSearchPrevLoop
+            jr    varsearch_entryfound
       
 
 ;Use immediately after a chkfindsym. CA=1 if not a font. Else HL= &fontstruct
@@ -417,8 +432,8 @@ _VarSearchPrev:
 getfontstruct:
       ret   c
       call  _ChkInRam
-      ex    de,hl
       jr    nc,getfontstruct_inram
+      ex    de,hl
       ld    de,9
       add   hl,de
       ld    e,(hl)
@@ -431,7 +446,8 @@ getfontstruct_inram:
       ld    hl,getfontstuct_header
       call  strcmp
       jr    nz,getfontstruct_failure
-      ld    hl,(hl)
+      ex    de,hl       ;HL=ptr to offset
+      ld    de,(hl)     ;DE=offset
       add   hl,de
       or    a,a
       ret
@@ -441,11 +457,12 @@ getfontstruct_failure:
       scf
       ret
 getfontstuct_header:
-.db $EF,$7B,$18,$09,"FNTPK",0
+.db $EF,$7B,$18,$0C,"FNTPK",0
 
 ;DE=str1, HL=str2. Z=match. NZ=nomatch.
 strcmp:
       push  bc
+            ld    c,$FF
 strcmp_loop:
             ld    a,(de)
             inc   de
@@ -491,10 +508,10 @@ _GetKbd:
 	RET
       
 _PrintOp1:
-      ld    hl,Op1
+      ld    hl,Op1+1
       jr    PrintNameInOp
 _PrintOp4:
-      ld    hl,Op4
+      ld    hl,Op4+1
 PrintNameInOp:
       ld    b,8
 PrintNameInOpLoop:
