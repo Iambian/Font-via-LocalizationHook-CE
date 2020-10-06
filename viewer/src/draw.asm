@@ -8,12 +8,17 @@ XDEF _GetFontStruct
 XDEF _GetKbd
 XDEF _PrintOp1
 XDEF _PrintOp4
+XDEF _fn_Setup_Palette
+XDEF _InstallHook
+XDEF _UninstallHook
 
 XREF _gfx_PrintChar
 XREF _kb_Scan
 XREF _groupmain
 XREF _grouptemp
 XREF _groupcurvar
+
+
 
 
 flags             EQU $D00080 ;As defined in ti84pce.inc
@@ -27,7 +32,10 @@ _PopRealO2        EQU $0205D8 ;''
 _PopRealO4        EQU $0205D0 ;''
 _PushRealO1       EQU $020614 ;''
 _PushRealO4       EQU $020608 ;''
-
+_SetLocalizeHook  EQU $0213F0 ;''
+_ClrLocalizeHook  EQU $0213F4 ;''
+_SetFontHook      EQU $021454 ;''
+_ClrFontHook      EQU $021458 ;''
 
 
 
@@ -389,7 +397,51 @@ PrintNameInOpLoop:
       djnz PrintNameInOpLoop
       ret
       
-      
+;------------------------
+
+_fn_Setup_Palette:
+	LD    HL,0E30019h
+	RES   0,(HL)       ;Reset BGR bit to make our mapping correct
+	LD	BC,0
+	LD	IY,0E30200h  ;Address of palette
+;palette index format: IIRRGGBB palette entry: IBBBBBGG GGGRRRRR
+setupPaletteLoop:
+	LD	HL,0
+	;PROCESS BLUE. TARGET 0bbii0--
+	LD	A,B
+	RRCA               ;BIIRRGGB
+	LD    E,A          ;Keep for red processing
+	RRCA               ;BBIIRRGG
+	LD	C,A          ;Keep for green processing
+	RRCA               ;GBBIIRRG
+	AND	A,01111000b  ;0BBII000
+	LD	H,A          ;Blue set.
+	;PROCESS GREEN. TARGET ii0000gg, MASK LOW NIBBLE INTO HIGH BYTE
+	LD    A,C           ;BBIIRRGG
+	XOR	H            ;xxxxxxyy
+	AND	A,00000011b  ;keep low bits to mask back to original
+	XOR	H            ;0BBII0GG
+	LD	H,A          ;Green high set (------GG)
+	LD	L,B          ;Green low set  (II------)
+	;PROCESS RED. TARGET 000rrii0
+	LD	A,B          ;IIRRGGBB
+	RLC   A            ;IRRGGBBI      
+	RLC   A            ;RRGGBBII      
+	RLC   A            ;RGGBBIIR
+	XOR	E            ;-----xx-
+	AND	A,00000110b
+	XOR	E            ;biiRRIIb
+	XOR   A,L          ;---xxxx-
+	AND   A,00011110b
+	XOR	L            ;IIxRRIIx
+	AND	A,11011110b  ;II0RRII0
+	LD	L,A
+      SET   7,H
+	LD	(IY+0),HL
+	LEA   IY,IY+2
+	INC   B
+	JR    NZ,setupPaletteLoop
+	RET
       
 ;======================================================================================
 ;======================================================================================
@@ -761,7 +813,29 @@ lookupgroupentry:
 
 
 
-
+_InstallHook:
+      ld    iy,flags
+      call  _GetFontStruct
+      ex    de,hl
+      inc   hl
+      inc   hl
+      inc   hl
+      ld    de,(hl)
+      add   hl,de
+      jp    _SetLocalizeHook
+      
+_UninstallHook:
+      ld    iy,flags
+      ld    a,(flags+$35)
+      bit   1,a         ;localize hook
+      jr    z,uninstallhook_notinstalled
+      call  _ClrLocalizeHook
+      xor   a,a
+      ret
+uninstallhook_notinstalled:
+      scf
+      sbc   a,a
+      ret
 
 
 
