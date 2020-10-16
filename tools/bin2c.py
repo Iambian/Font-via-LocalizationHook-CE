@@ -12,7 +12,7 @@ with open(infile,"rb") as f:
 s = "#include <stdint.h>\n\n"
 s += "uint8_t "
 s += os.path.splitext(os.path.split(outfile)[1])[0]
-s += "[] {\n";
+s += "[] = {\n";
 idx = 0
 for i in range(int(math.ceil(len(b)/16))):
     for j in range(16):
