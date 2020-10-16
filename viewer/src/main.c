@@ -140,12 +140,14 @@ void main(void) {
 			
 			/* Perform lookup and graphics logic here */
 			gfx_FillScreen(COLOR_BLUE|COLOR_LIGHTER|COLOR_MAROON|COLOR_LIME);
+			gfx_SetColor(0);
 			gfx_PrintStringXY("Font Previewing Program",80,4);
 			gfx_HorizLine(0,14,320);
 			gfx_PrintStringXY(updown,16,18);
 			gfx_PrintString("Locating filetype: ");
 			gfx_PrintString(typenames[typeindex]);
 			gfx_SetTextXY(28,30);
+			gfx_HorizLine(0,44,320);
 			if (topfile_result) {
 				gfx_PrintString("*** NO FONTS FOUND ***");
 			} else {
