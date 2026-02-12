@@ -51,24 +51,13 @@
 #include <fileioc.h>
 #include <compression.h>
 
+#include "extern.h"
+
 /* Put your function prototypes here */
 uint8_t 	staticMenu(char **sarr,uint8_t numstrings);
 void 		alert(char **sarr,uint8_t numstrings);
 
-void		DrawLFontExample( void *data );	/*Externally defined */
-void		DrawSFontExample( void *data );	/*Externally defined */
 
-void 		fn_Setup_Palette(void);
-uint8_t 	InitVarSearch( uint8_t vartype);
-uint8_t 	VarSearchNext(void);
-uint8_t 	VarSearchPrev(void);
-void*		GetFontStruct(void);
-kb_key_t 	GetKbd(void);
-void		PrintOp1(void);
-void		PrintOp4(void);
-kb_key_t	GetKbd(void);
-void		InstallHook(void);
-uint8_t		UninstallHook(void);
 
 
 /*	Controls:
@@ -91,7 +80,7 @@ const char *fontinstalled[] = {"The font has been installed!"};
 const char *fontuninstalled[] = {"The font has been uninstalled!"};
 
 
-void main(void) {
+int main(void) {
 	uint8_t i;
 	uint8_t vartype;
 	uint8_t topfile_result;

@@ -1,8 +1,8 @@
 Font-Through-Localization Hook for the CE
 =========================================
 
-**THIS BRANCH OF THE PROJECT IS INCOMPLETE. DOCUMENTATION MAY EITHER
-BE NON-EXISTANT OR INCORRECT**
+A customizable font system for the TI-84 Plus CE that uses the localization hook
+to replace the calculator's default fonts with your own TrueType fonts.
 
 Build Dependencies
 ------------------
@@ -12,38 +12,52 @@ Build Dependencies
 
 Building a Font
 ---------------
-1. Edit `packer.py` in the `builder` folder to configure the font you want to build.
+1. Obtain TrueType font files (.ttf) and place them in `builder/fonts/` folder.
+   * Create the `fonts` folder if it doesn't exist (it's gitignored to avoid copyright issues).
+   * You can use system fonts (e.g., from C:\Windows\Fonts on Windows) or download free fonts.
+   * Popular choices: Courier New, Arial, Comic Sans, or any monospace font.
+   * Note: Respect font licenses - only use fonts you have rights to distribute.
+2. Edit `packer.py` in the `builder` folder to configure the font you want to build.
    * Assume the current directory is `builder` for all file/directory purposes.
    * Scroll to the bottom of the file. It's where all the important stuff is.
    * Set `encodings_in_my_json_file`
-     - To a JSON file with encodings. See examples in `builder/fonts`. You can make
-       your own to get more support for such things as accented characters and
-       mathematical symbols.
-     - To `None`. That'll default mapping in only alphanumeric characters.
+     - To a JSON file with encodings. See examples in `builder/encoding/` folder:
+       * `asciish.json` - Full ASCII-like character set with special symbols
+       * `alphanum.json` - Alphanumeric characters only
+       * `upper.json` - Uppercase letters only
+       * `lower.json` - Lowercase letters only
+     - You can create your own to support accented characters and mathematical symbols.
+     - To `None`. That'll default to mapping only alphanumeric characters.
    * Modify the two `packit()` function calls.
-     - First argument is name of font file. I keep mine in `builder/fonts`
+     - First argument is path to font file (e.g., `"fonts/cour.ttf"`)
      - Second argument is size of font, in points. This needs to be iteratively
        tweaked to get better results; this tool can't automatically do this.
-2. Run `packfont.bat` in the `hook` folder. This will generate `encodings.asm`,
+3. Run `packfont.bat` in the `hook` folder. This will generate `encodings.asm`,
    `lfont.asm`, and `sfont.asm` in the `hook/obj` folder. You can manually tweak these
    files so long as you don't run this batch script again.
-3. Still in the `hook` folder? Great. Open a console window in this folder. You
+4. Still in the `hook` folder? Great. Open a console window in this folder. You
    can build two different font types:
-   * A font that can install itself, just like things were before this change.
-     - Run `build_standalone.bat <NAME>` where `NAME` is up to 8 characters, all
-       characters are uppercase, contains no non-alphanumeric characters, and does
-       not start with a number.
-   * A font that requires use of a font viewing program to install. Use this if
-     you have a viewer and don't want files to clutter your programs list.
-     - Run `build_resource.bat [NAME]` where `NAME` is a valid file name for
-       use on the calculator. You *must* supply a name. The name can be nearly
-       anything 8 characters or less. It must not contain spaces.
-4. Collect the resulting `.8xp` or `.8xv` file from the `hook/bin` folder.
+   
+   **Standalone Font (Self-Installing Program)**
+   * Run `build_standalone.bat <NAME>` where `NAME` is up to 8 characters.
+   * Creates a `.8xp` file (Protected Program) that appears in the calculator's PRGM menu.
+   * When run, it installs or uninstalls itself as the active font.
+   * Use if you want a simple one-file solution.
+   * Output: `hook/bin/<NAME>.8xp`
+   
+   **Resource Font (For Use with Viewer)**
+   * Run `build_resource.bat <NAME>` where `NAME` is required, up to 8 characters.
+   * Creates a `.8xv` file (AppVar) that doesn't clutter your programs list.
+   * Requires the Font Viewer (FONTVIEW) to preview and install.
+   * Use if you want to manage multiple fonts with the viewer.
+   * Output: `hook/bin/<NAME>.8xv`
+   
+5. Transfer the resulting file(s) from `hook/bin/` to your calculator.
 
 Editing a Font Encoding
 -----------------------
 To start, here's some helpful references you should keep open. You'll need them.
-- The `asciish.json` file in the `builder/font` folder, as a visual and example.
+- The `asciish.json` file in the `builder/encoding` folder, as a visual and example.
 - [Calculator character set](https://en.wikipedia.org/wiki/TI_calculator_character_sets)
 - [ASCII character set](https://en.wikipedia.org/wiki/ASCII#Character_set)
 - [Mathematical symbols](https://en.wikipedia.org/wiki/Mathematical_operators_and_symbols_in_Unicode)
@@ -62,29 +76,55 @@ Inside that array may contain any number of the following items:
   - Second: The decimal codepoint in TI's encoding where the character defined in the
     first element will go.
 
-Remember the name of the JSON file you created and use during step 1 of building your font
+Remember the name of the JSON file you created and use during step 2 of building your font.
 
+Using the Font Viewer
+---------------------
+The Font Viewer (FONTVIEW.8xp) is located in `viewer/bin/`. It allows you to browse,
+preview, and install font packages without running individual programs.
 
-Basic rundown of the TODO list
-------------------------------
+**Controls:**
+* **Up/Down arrows** - Change file type (PROTPROG/APPVAR/GROUP)
+* **Left/Right arrows** - Browse through available fonts
+* **Y=** - Toggle between large font and small font preview
+* **2nd** - Install the currently selected font
+* **DEL** - Uninstall the current font
+* **MODE** - Exit viewer
 
-* Write docs for tools in `builder`. Added modified encoding settings via
-  JSON scripts in the `builder/fonts` folder. Also aiming to remove all the
-  non-free .ttf/.otf/other font files to help avoid running afoul of copyright.
-* Possibly rename `builder` to `packer` but windows is preventing me right now.
-* Write docs for using the tools in `hook` directory. Sufficient docs exist
-  in the batch file comments. Long and short: run `packfont.bat` first and
-  run `build_standalone.bat` to mimic old behavior.
-* Examples may include copyrighted material. Unsure of the details there.
-  They'll remain until I find suitable free fonts to replace them.
-* `packer.py` still needs work. A refined method of height adjustments and
-  perhaps storing per-character offsets for each font? Need some help there.
-* The real purpose of this branch was to add a font (pre)viewer tool and to
-  allow easier ways to load more than one different font onto the calculator
-  at the same time. Requiring every font to be named "FONTHOOK" was getting old.
-* Turns out the catalog help is getting corrupted. Gotta go fish around the
-  OS to figure out what event that's triggered on and handle it too. Because
-  all the special newfangled things require all the special handling.
+**File Types:**
+* **PROTPROG** - Standalone fonts (self-installing .8xp files)
+* **APPVAR** - Resource fonts (.8xv files built with `build_resource.bat`)
+* **GROUP** - Grouped font files
+
+The viewer displays both the large and small font versions, showing how text will
+appear on the calculator with that font installed.
+
+Building the Font Viewer
+-------------------------
+The viewer is pre-built, but to rebuild it:
+1. Ensure you have the [CE C Toolchain](https://github.com/CE-Programming/toolchain/) installed.
+2. Navigate to the `viewer` folder.
+3. Run `make` to build FONTVIEW.8xp.
+
+Remaining TODO List
+-------------------
+
+**Completed:**
+* ✅ Font viewer/previewer tool built and functional
+* ✅ Support for multiple fonts with different names
+* ✅ Encoding JSON system implemented (`builder/encoding/`)
+* ✅ Font files (.ttf/.otf) removed from repository (gitignored)
+* ✅ Catalog help corruption fixed (handled in hook)
+* ✅ Matrix editor event bugs fixed
+* ✅ Stub headers generated for font editor project integration
+* ✅ Documentation for builder and hook tools
+
+**Outstanding:**
+* `packer.py` could use refinement: better height adjustment algorithm and
+  per-character offset storage for improved font rendering.
+* Consider renaming `builder` to `packer` (currently blocked by Windows file locks).
+* Examples may include copyrighted material - verify licensing or replace with
+  confirmed free fonts.
 
 Licenses
 --------
@@ -98,15 +138,15 @@ this one go.
 Credits
 -------
 
-*	jacobly - thanks for all the technical help with the hooks including help on
-				pointing me in the right direction and stuff that isn't in
-				any documentation anywhere. Probably not even at TI.
-*	Cemetech - A site and a community. It's a great place to be.
-*	geekboy1011 - Provider of cherries and sanity. Also wouldn't have started
-				this whole let's-hook-into-all-the-things business without his
-				initial suggestion for a particular homescreen hook.
-                        Also provided excellent rubberducking for the new encoding
-                        method and file structure. And for a viewer.
+*	  jacobly - thanks for all the technical help with the hooks including help on
+        on pointing me in the right direction and stuff that isn't in any
+        documentation anywhere. Probably not even at TI.
+*	  Cemetech - A site and a community. It's a great place to be.
+*	  geekboy1011 - Provider of cherries and sanity. Also wouldn't have started
+				this whole let's-hook-into-all-the-things business without his initial
+				suggestion for a particular homescreen hook. Also provided excellent
+        rubberducking for the new encoding method and file structure. 
+        And for a viewer.
 
 
 

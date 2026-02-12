@@ -1,25 +1,12 @@
-.assume adl=1
-XDEF _DrawLFontExample
-XDEF _DrawSFontExample
-XDEF _InitVarSearch
-XDEF _VarSearchNext
-XDEF _VarSearchPrev
-XDEF _GetFontStruct
-XDEF _GetKbd
-XDEF _PrintOp1
-XDEF _PrintOp4
-XDEF _fn_Setup_Palette
-XDEF _InstallHook
-XDEF _UninstallHook
-
-XREF _gfx_PrintChar
-XREF _kb_Scan
-XREF _groupmain
-XREF _grouptemp
-XREF _groupcurvar
+assume adl=1
 
 
 
+extern _gfx_PrintChar
+extern _kb_Scan
+extern _groupmain
+extern _grouptemp
+extern _groupcurvar
 
 flags             EQU $D00080 ;As defined in ti84pce.inc
 _LoadPattern      EQU $021164 ;''
@@ -36,8 +23,6 @@ _SetLocalizeHook  EQU $0213F0 ;''
 _ClrLocalizeHook  EQU $0213F4 ;''
 _SetFontHook      EQU $021454 ;''
 _ClrFontHook      EQU $021458 ;''
-
-
 
 prevDData         EQU $D005A1 ;''
 lFont_record      EQU $D005A4 ;''
@@ -61,7 +46,7 @@ fontdata_offset   EQU 3
 ;Draw area is (14w by 18h, though fonts are 12w by 14h
 ;rw ofs byte1 byte2    fill
 ;00 -03 00000 00000000 0
-;01 +01 00000 00000000 0
+;01 -01 00000 00000000 0
 ;02 +01 11111 11111110 0
 ;03 +03 11111 11111110 0
 ;04 +05 11111 11111110 0
@@ -85,6 +70,8 @@ fontdata_offset   EQU 3
 ;Starting X coord at 6. This can be calculated.
 ;void DrawLFontExample( fontstruct *data )
 ;fontstruct contains: encodings,lfont,sfont
+section .text
+public _DrawLFontExample
 _DrawLFontExample:
       di
       ld    iy,flags
@@ -218,7 +205,6 @@ DLFE_DLCL_Stage2Loop:
 ;
 
 
-
 ;FOLLOWING CODE NOT WORK. YOU MUST ADAPT THIS TO WORK ON SMALL FONT.
 ;WHICH PROBABLY MEANS OVER HALF THIS CODE WILL BE BROKEN APART AND REPLACED
 ;WITH SOMETHING THAT WILL WORK WITH SMALL FONTS. BECAUSE THEY'RE JUST THAT
@@ -226,6 +212,8 @@ DLFE_DLCL_Stage2Loop:
 ;
 ;void DrawSFontExample( fontstruct *data )
 ;fontstruct contains: encodings,lfont,sfont
+section .text
+public _DrawSFontExample
 _DrawSFontExample:
       di
       ld    iy,flags
@@ -375,7 +363,9 @@ DFSE_FinishCharDraw:
       ret
       
 ;---------------------------
-
+section .text
+public _PrintOp1
+public _PrintOp4
 _PrintOp1:
       ld    hl,Op1+1
       jr    PrintNameInOp
@@ -398,7 +388,8 @@ PrintNameInOpLoop:
       ret
       
 ;------------------------
-
+section .text
+public _fn_Setup_Palette
 _fn_Setup_Palette:
 	LD    HL,0E30019h
 	RES   0,(HL)       ;Reset BGR bit to make our mapping correct
@@ -460,6 +451,8 @@ setupPaletteLoop:
 
 ;Return values: 0=success, $FF=failure
 ;uint8_t InitVarSearch(uint8_t vartype) - $05=prog,$06=protprog, $15=appvar, $17=group
+section .text
+public _InitVarSearch
 _InitVarSearch:
       ld    hl,3
       add   hl,sp       ;should reset carry.
@@ -493,6 +486,8 @@ initvarsearch_finish:
       ret
       
 ;----------------------------------------------------------------
+section .text
+public _VarSearchNext
 _VarSearchNext:
       push  ix
             call  _PushRealO1
@@ -518,8 +513,8 @@ varsarch_filenotfound:
       pop   ix
       ret
 ;----------------------------------------------------------------
-      
-      
+section .text
+public _VarSearchPrev
 _VarSearchPrev:
       push  ix
             call  _PushRealO1
@@ -535,7 +530,8 @@ _VarSearchPrevLoop:
             jr    varsearch_entryfound
       
 ;----------------------------------------------------------------
-
+section .text
+private getdatasection
 getdatasection:
       call  _ChkInRam
       ret   nc
@@ -550,6 +546,8 @@ getdatasection:
 
 ;Use immediately after a chkfindsym. CA=1 if not a font. Else HL= &fontstruct
 ;Do not use this on a group. Use this on individual files inside a group (DE=adr)
+section .text
+private getfontstruct
 getfontstruct:
       call  getdatasection
       inc   de
@@ -569,10 +567,12 @@ getfontstruct_failure:
       scf
       ret
 getfontstuct_header:
-.db $EF,$7B,$18,$0C,"FNTPK",0
+db $EF,$7B,$18,$0C,"FNTPK",0
 sizeof_fontheader equ $-getfontstuct_header
 
 ;DE=str1, HL=str2. Z=match. NZ=nomatch.
+section .text
+private strcmp
 strcmp:
       push  bc
             ld    c,$FF
@@ -599,6 +599,8 @@ strcmp_fail:
 ;Input: Op1 = varname.
 ;fonstruct* GetFontStruct(void)
 ;Returns NULL if not found.
+section .text
+public _GetFontStruct
 _GetFontStruct:
       call  _ChkFindSym
       and   a,$3F
@@ -616,6 +618,8 @@ _GetFontStruct:
 
 getkbd_prevkey: db 0
 ;out: A=newkey
+section .text
+public _GetKbd
 _GetKbd:
 	CALL _kb_Scan
 	LD	 A,(16056338)
@@ -633,6 +637,8 @@ _GetKbd:
       
 ;Carry if error condition encountered.
 ;A and HL = numentries that are fonts (start of ARCVAT for name retrieval)
+section .text
+private EnumGroup
 EnumGroup:
       call  getdatasection
       or    a,a
@@ -719,6 +725,8 @@ enumgroup_finish:
 
 
 ;A= -1 for prev, 1 for next. Op1 for type
+section .text
+private iteratefiles
 iteratefiles:
       ld    (iteratefiles_iterdir),a
 iteratefilesloop:
@@ -789,6 +797,8 @@ checkgroupcount_empty:
 
 ;input:   _groupmain and _groupcurvar set correctly.
 ;output: HL=start of offsets in header, Op4 set to var name. Carry reset.
+section .text
+private lookupgroupentry
 lookupgroupentry:
       ld    de,(_groupcurvar)
       ld    hl,_groupmain
@@ -813,6 +823,8 @@ lookupgroupentry:
 
 
 
+section .text
+public _InstallHook
 _InstallHook:
       ld    iy,flags
       call  _GetFontStruct
@@ -824,6 +836,8 @@ _InstallHook:
       add   hl,de
       jp    _SetLocalizeHook
       
+section .text
+public _UninstallHook
 _UninstallHook:
       ld    iy,flags
       ld    a,(flags+$35)
@@ -836,7 +850,6 @@ uninstallhook_notinstalled:
       scf
       sbc   a,a
       ret
-
 
 
 
