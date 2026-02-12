@@ -443,8 +443,6 @@ setupPaletteLoop:
 ;uint8_t VarSearchPrev(void)
 
 
-
-
 ;The following three routines requires Op1 to remain intact between runnings.
 ;You could probably use Op4-Op6 as temporary storage if you're doing subsearching.
 ;No inputs, but same outputs as VarSearchNext.
@@ -455,7 +453,7 @@ section .text
 public _InitVarSearch
 _InitVarSearch:
       ld    hl,3
-      add   hl,sp       ;should reset carry.
+      add   hl,sp       ;Resets carry. Address range does not allow it.
       ld    a,(hl)
       sbc   hl,hl
       ld    (_groupcurvar),hl
@@ -463,26 +461,10 @@ _InitVarSearch:
       ld    l,a
       ld    (Op1),hl
       push  ix
-initvarsearch_loop:
             ld    a,1
             call  iteratefiles
-            
-            ;call  _FindAlphaUp
-            jr    c,initvarsearch_finish
-            ;call  _ChkFindSym
-            ;and   a,$3F
-            ;cp    a,$17
-            ;jr    nz,initvarsearch_normalvar
-            ;call  EnumGroup
-            ;or    a,a
-            ;jr    z,initvarsearch_loop    ;keep searching if group has no fonts
-            jr    initvarsearch_finish
-initvarsearch_normalvar:
-            call  getfontstruct
-            jr    c,initvarsearch_loop
-initvarsearch_finish:
       pop   ix
-      sbc   a,a
+      sbc   a,a   ;0 if NC, $FF if C
       ret
       
 ;----------------------------------------------------------------
@@ -495,12 +477,7 @@ _VarSearchNext:
 _VarSearchNextLoop:
             ld    a,1
             call  iteratefiles
-            
-            ;call  _FindAlphaUp
             jr    c,varsarch_filenotfound
-            ;call  _ChkFindSym
-            ;call  getfontstruct
-            ;jr    c,_VarSearchNextLoop
             sbc   a,a
 varsearch_entryfound:
             call  _PopRealO2  ;Evens out stack without overwriting OP1.
@@ -515,6 +492,7 @@ varsarch_filenotfound:
 ;----------------------------------------------------------------
 section .text
 public _VarSearchPrev
+require _VarSearchNext
 _VarSearchPrev:
       push  ix
             call  _PushRealO1
@@ -522,12 +500,8 @@ _VarSearchPrev:
 _VarSearchPrevLoop:
             ld    a,-1
             call  iteratefiles
-            ;call  _FindAlphaDn
-            jr    c,varsarch_filenotfound
-            ;call  _ChkFindSym
-            ;call  getfontstruct
-            ;jr    c,_VarSearchPrevLoop
-            jr    varsearch_entryfound
+            jp    c,varsarch_filenotfound
+            jp    varsearch_entryfound
       
 ;----------------------------------------------------------------
 section .text
@@ -751,9 +725,9 @@ iterate_over_filesystem:
       ret   c
       and   a,$3F
       cp    a,$17
-      jr    nz,iteratefiles_normalfile    ;if not group, normalfile stuffs
-      call  EnumGroup                     ;Check if valid group and set
-      or    a,a                           ;up pointers if so
+      jr    nz,iteratefiles_normalfile    ;If not jump, handle group.
+      call  EnumGroup                     ;Not using carry. Instead use
+      or    a,a                           ;check A=0 for no group entries.
       ld    a,(iteratefiles_iterdir)
       ld    b,a
       jr    z,iterate_over_filesystem     ;otherwise set B and check next file
@@ -817,6 +791,7 @@ lookupgroupentry:
       ld    (de),a
       ld    de,2+sizeof_fontheader
       add   hl,de
+      or    a,a
       ret
 
 ;---------------------------------------------------------------------------

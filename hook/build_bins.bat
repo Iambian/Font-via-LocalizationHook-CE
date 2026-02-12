@@ -15,7 +15,7 @@ type src\sahead.asm >> obj\stalstub.asm
 type src\loader.asm >> obj\stalstub.asm
 type src\hook.asm >> obj\stalstub.asm
 ..\tools\\spasm-ng -E obj\stalstub.asm obj\stalstub.bin
-py ..\tools\bin2c.py obj\stalstub.bin bin\stalstub.h
+python ..\tools\bin2c.py obj\stalstub.bin bin\stalstub.h
 
 
 

@@ -7,9 +7,9 @@ Section          Base   Top    High   Length
 .init.reruncheck D1A95C D1A95C             0h
 .init            D1A95C D1A988            2Ch
 .fini            D1A988 D1A9BC            34h
-.text            D1A9BC D1B5A8           BECh
-.data            D1B5A8 D1B5C0            18h
-.rodata          D1B5C0 D1B6A4            E4h
+.text            D1A9BC D1B5AB           BEFh
+.data            D1B5AB D1B5C3            18h
+.rodata          D1B5C3 D1B6A7            E4h
 .init_array      000000 000000             0h
 .ctors           000000 000000             0h
 .dtors           000000 000000             0h
@@ -48,10 +48,10 @@ __sdvrms_abs                         = D1AAA6
 __sdvrmu                             = D1AAC6
 _os_DisableHomeTextBuffer            = D1AAD6
 _os_EnableHomeTextBuffer             = D1AAE8
-.missingappvar                       = D1B5C0
-.libloadname                         = D1B5C5
+.missingappvar                       = D1B5C3
+.libloadname                         = D1B5C8
 .libloadnamelen                      = 000007
-.webaddress                          = D1B5CD
+.webaddress                          = D1B5D0
 __start                              = D1A95C
 ___exithl                            = D1A988
 skip._exit                           = D1A988
@@ -60,52 +60,52 @@ skip._abort                          = D1A988
 _exit.sp                             = D1A989
 _exit.flash_wait_states              = D1A993
 _main                                = D1AAFA
-_staticMenu                          = D1AD0F
-_alert                               = D1AE17
-_getLongestLength                    = D1AEE1
-_keywait                             = D1AF40
-_drawMenuStrings                     = D1AF48
-_menuRectangle                       = D1B0B5
-_typelist                            = D1B5E2
-_.str                                = D1B5E5
-_.str.1                              = D1B5EE
-_.str.2                              = D1B5F5
-_typenames                           = D1B5A8
-_updown                              = D1B5FB
-_leftright                           = D1B5FF
-_.str.3                              = D1B602
-_.str.4                              = D1B615
-_.str.5                              = D1B61B
-_installmenu                         = D1B5B1
-_.str.6                              = D1B620
-_fontinstalled                       = D1B5BA
-_.str.7                              = D1B63D
-_fontuninstalled                     = D1B5BD
-_.str.8                              = D1B65C
-_.str.9                              = D1B674
-_.str.10                             = D1B688
-_.str.11                             = D1B69F
+_staticMenu                          = D1AD17
+_alert                               = D1AE1F
+_getLongestLength                    = D1AEE9
+_keywait                             = D1AF48
+_drawMenuStrings                     = D1AF50
+_menuRectangle                       = D1B0BD
+_typelist                            = D1B5E5
+_.str                                = D1B5E8
+_.str.1                              = D1B5F1
+_.str.2                              = D1B5F8
+_typenames                           = D1B5AB
+_updown                              = D1B5FE
+_leftright                           = D1B602
+_.str.3                              = D1B605
+_.str.4                              = D1B618
+_.str.5                              = D1B61E
+_installmenu                         = D1B5B4
+_.str.6                              = D1B623
+_fontinstalled                       = D1B5BD
+_.str.7                              = D1B640
+_fontuninstalled                     = D1B5C0
+_.str.8                              = D1B65F
+_.str.9                              = D1B677
+_.str.10                             = D1B68B
+_.str.11                             = D1B6A2
 _groupmain                           = D052C6
 _grouptemp                           = D055C9
 _groupcurvar                         = D058CC
-_DrawLFontExample                    = D1B178
-_DrawSFontExample                    = D1B238
-_PrintOp1                            = D1B324
-_PrintOp4                            = D1B32A
-_fn_Setup_Palette                    = D1B340
-_InitVarSearch                       = D1B381
-_VarSearchNext                       = D1B3AC
-_VarSearchPrev                       = D1B3D5
-getdatasection                       = D1B3E9
-getfontstruct                        = D1B3F9
-strcmp                               = D1B41F
-_GetFontStruct                       = D1B42D
-_GetKbd                              = D1B443
-EnumGroup                            = D1B45B
-iteratefiles                         = D1B4E1
-lookupgroupentry                     = D1B557
-_InstallHook                         = D1B57E
-_UninstallHook                       = D1B592
+_DrawLFontExample                    = D1B180
+_DrawSFontExample                    = D1B240
+_PrintOp1                            = D1B32C
+_PrintOp4                            = D1B332
+_fn_Setup_Palette                    = D1B348
+_InitVarSearch                       = D1B389
+_VarSearchNext                       = D1B3AA
+_VarSearchPrev                       = D1B3D3
+getdatasection                       = D1B3EB
+getfontstruct                        = D1B3FB
+strcmp                               = D1B421
+_GetFontStruct                       = D1B42F
+_GetKbd                              = D1B445
+EnumGroup                            = D1B45D
+iteratefiles                         = D1B4E3
+lookupgroupentry                     = D1B559
+_InstallHook                         = D1B581
+_UninstallHook                       = D1B595
 lib.LibLoad                          = D1A8F3
 _#gfx_Begin                          = D1A906
 _#gfx_End                            = D1A90A

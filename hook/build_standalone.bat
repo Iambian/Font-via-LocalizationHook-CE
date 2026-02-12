@@ -19,5 +19,5 @@ if "%1%"=="" (
 ) else (
  set VAR=%1%.8xp
 )
-py ..\tools\binconv.py obj\main.bin bin\%VAR%
+python ..\tools\binconv.py obj\main.bin bin\%VAR%
 

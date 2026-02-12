@@ -135,8 +135,8 @@ encodings_in_my_json_file = None
 encodings_in_my_json_file = "encoding/asciish.json"
 
 encoding = reencode(encodings_in_my_json_file,"encodings.z80")
-packit("fonts/courbd.ttf",14,encoding,"lfont.z80",largefontsource)
-packit("fonts/cour.ttf",12,encoding,"sfont.z80",smallfontsource)
+packit("fonts/OpenSans.ttf",14,encoding,"lfont.z80",largefontsource)
+packit("fonts/OpenSans.ttf",12,encoding,"sfont.z80",smallfontsource)
 
 
 

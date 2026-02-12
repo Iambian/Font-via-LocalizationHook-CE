@@ -54,8 +54,8 @@
 #include "extern.h"
 
 /* Put your function prototypes here */
-uint8_t 	staticMenu(char **sarr,uint8_t numstrings);
-void 		alert(char **sarr,uint8_t numstrings);
+uint8_t 	staticMenu(const char **sarr,uint8_t numstrings);
+void 		alert(const char **sarr,uint8_t numstrings);
 
 
 
@@ -81,25 +81,21 @@ const char *fontuninstalled[] = {"The font has been uninstalled!"};
 
 
 int main(void) {
-	uint8_t i;
 	uint8_t vartype;
 	uint8_t topfile_result;
-	uint8_t groupfile_result;
 	uint8_t dosmallfont;
 	uint8_t typeindex;
 	kb_key_t k;
 	void *ptr;
-      void *tempptr;
 	
 	gfx_Begin();
 	fn_Setup_Palette();
 	
 	gfx_SetDrawBuffer();
 	
-	dosmallfont = 1;
+	dosmallfont = 0;
 	vartype = 0x06;
 	topfile_result = InitVarSearch(vartype);
-	groupfile_result = 0xFF;
 	typeindex = 0;
 	
 	k = kb_Yequ;	/* Key used to toggle lFont/sFont. Here, just priming screen */
@@ -107,8 +103,10 @@ int main(void) {
 		if (k) {
 			/* Perform keyboard checking here */
 			if (k&kb_Yequ)		dosmallfont = !dosmallfont;
-			if (k&kb_Left)		VarSearchPrev();
-			if (k&kb_Right)		VarSearchNext();
+			if (!topfile_result) {
+				if (k&kb_Left)		VarSearchPrev();
+				if (k&kb_Right)		VarSearchNext();
+			}
 			if (k&kb_Up && typeindex>0)		--typeindex;
 			if (k&kb_Down && typeindex<2)	++typeindex;
 			if (k&(kb_Up|kb_Down)) {
@@ -139,7 +137,10 @@ int main(void) {
 			gfx_HorizLine(0,44,320);
 			if (topfile_result) {
 				gfx_PrintString("*** NO FONTS FOUND ***");
-			} else {
+			} 
+			///*
+			else 
+			{   
 				gfx_PrintString(leftright);
 				PrintOp1();
 				if (vartype==0x17) {
@@ -155,7 +156,7 @@ int main(void) {
 					}
 				}
 			}
-			
+			//*/
 			
 			gfx_SwapDraw();
 		}
@@ -167,19 +168,18 @@ int main(void) {
 /* Put other functions here */
 
 
-int getLongestLength(char **sarr, uint8_t numstrings);
-void drawMenuStrings(char **sarr, uint8_t numstrings,int xbase, uint8_t ybase, int width, uint8_t height, uint8_t index, uint8_t cbase);
+int getLongestLength(const char **sarr, uint8_t numstrings);
+void drawMenuStrings(const char **sarr, uint8_t numstrings,int xbase, uint8_t ybase, int width, uint8_t height, uint8_t index, uint8_t cbase);
 void menuRectangle(int x,uint8_t y,int w, uint8_t h, uint8_t basecolor);
 
 void keywait() {
 	while (!kb_AnyKey()); 
 }
 
-uint8_t staticMenu(char **sarr,uint8_t numstrings) {
+uint8_t staticMenu(const char **sarr,uint8_t numstrings) {
 	kb_key_t k;
-	uint8_t oldtextcolor;
-	int width,xbase,tempx,strwidth;
-	uint8_t i,height,ybase,cbase,index,tempy;
+	int width,xbase;
+	uint8_t height,ybase,cbase,index;
 	
 	width = getLongestLength(sarr,numstrings)+8;
 	height = (4+(numstrings-1)*12+16); //Border 4px, header 16px, others 10px
@@ -210,10 +210,10 @@ uint8_t staticMenu(char **sarr,uint8_t numstrings) {
 //We don't have newlines so we've got to do it via array of strings.
 //sarr is structured exactly like menus, except there are no decisions
 //and any key pressed will close the notice
-void alert(char **sarr,uint8_t numstrings) {
+void alert(const char **sarr,uint8_t numstrings) {
 	kb_key_t k;
-	int width,xbase,tempx,strwidth;
-	uint8_t i,height,ybase,cbase,index,tempy;
+	int width,xbase;
+	uint8_t height,ybase,cbase;
 	
 	width = getLongestLength(sarr,numstrings)+8;
 	height = (4+(numstrings-1)*12+16); //Border 4px, header 16px, others 10px
@@ -233,7 +233,7 @@ void alert(char **sarr,uint8_t numstrings) {
 	gfx_SetTextFGColor(0);
 }
 
-void drawMenuStrings(char **sarr, uint8_t numstrings,int xbase, uint8_t ybase, int width, uint8_t height, uint8_t index, uint8_t cbase) {
+void drawMenuStrings(const char **sarr, uint8_t numstrings,int xbase, uint8_t ybase, int width, uint8_t height, uint8_t index, uint8_t cbase) {
 	uint8_t i,ytemp;
 	int xtemp;
 	
@@ -256,7 +256,7 @@ void drawMenuStrings(char **sarr, uint8_t numstrings,int xbase, uint8_t ybase, i
 	}
 }
 
-int getLongestLength(char **sarr, uint8_t numstrings) {
+int getLongestLength(const char **sarr, uint8_t numstrings) {
 	int largest_width,current_width;
 	largest_width = 0;
 	do {
