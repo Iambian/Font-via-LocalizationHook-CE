@@ -96,44 +96,47 @@ _gatherFiles:
     ld  (hl),0    ;init varcount to 0
     ld  ix,(progPtr)
     jr  gatherFiles_detecting
+    ; Below is the main loop for traversing the VAT and locating suitable files
+    ; based on vartypeidx, splitting into two branches that handles not-group
+    ; and group files 
 gatherFiles_detectLoop:
-    ; Main loop for traversing the VAT, looking for variables that could
-    ; match the type we are looking for. Terminate loop at end of VAT.
     call traverseVat
     jr  c,gatherFiles_lookupConcluded
+    ;---
 gatherFiles_detecting:
-    ld  a,(ix+0)
-    and a,$1F   ;Mask out flags to get variable type
-    ld  b,a     ;Save variable type in B for later comparison
-    ;Retrieve variable type from index
+    ld  a,(ix+0)    ;VAT entry: Type+flags byte
+    and a,$1F       ;strip flags, retaining type.
+    ld  b,a
     call gatherFiles_retrieveFiletype
     cp  a,b
-    jr  nz,gatherFiles_detectLoop
-    ;If we got here, then IX is at a variable of the correct type. Gather info.
+    jr  nz,gatherFiles_detectLoop   ;If not type match, iterate.
     ld  de,(ix-7)   ;puts "page" byte in DEU
-    ld  e,(ix-3)
-    ld  d,(ix-4)
+    ld  e,(ix-3)    ;and construct the rest of DE because who the hell writes a
+    ld  d,(ix-4)    ;pointer BACKWARDS without direct access to its upper byte?
     call _ChkInRam
-    jr  nc,gatherFiles_detectLoop    ;We do not deal in objects in RAM.
+    jr  nc,gatherFiles_detectLoop   ;If in RAM, iterate. We don't do RAM objects.
     ld  a,b
     cp  a,GroupObj
     jr  z,gatherFiles_actOnGroup
-    ;If we got here, then this is a non-group variable of the correct type.
+    ;--- HANDLE PROTPROG/APPVAR OBJECTS
     or  a,a
     sbc hl,hl
-    ld  (gatherFiles_traverseAndUpdateFontvars_groupNamePtrSMC),hl  ;init
-    ld  (gatherFiles_traverseAndUpdateFontvars_groupEOFSMC),hl      ;force exit from loop after one iteration, as non-group vars only have one var entry.
+    ld  (gatherFiles_traverseAndUpdateFontvars_groupNamePtrSMC),hl
+    ; Below is set to zero to force terminate-on loop end. No need to
+    ; figure out where the end of the file is. Is easy.
+    ld  (gatherFiles_traverseAndUpdateFontvars_groupEOFSMC),hl
     ex  de,hl   ;HL=pointer to variable header area
     inc hl
     inc hl
-    inc hl  ;Skip past Flash flag and pre-variable size bytes.
+    inc hl      ;Skip past Flash flag and pre-variable size bytes.
     call gatherFiles_traverseAndUpdateFontvars
     jr  gatherFiles_detectLoop
 gatherFiles_actOnGroup:
+    ;--- HANDLE GROUP OBJECTS
     push ix
     push iy
     ;---
-    ld  bc,9    ;3 extra bytes at start. First is archive flag. Next two are size bytes. The rest is standard VAT copy up to name size byte.
+    ld  bc,9    ;1 flash flag byte, 2 pre-var size bytes, 6 VAT backup bytes.
     ex  de,hl   ;HL=pointer to variable header area
     add hl,bc
     ld  (gatherFiles_traverseAndUpdateFontvars_groupNamePtrSMC),hl
@@ -197,15 +200,14 @@ gatherFiles_traverseAndUpdateFontvars:
     push af
         add hl,bc   ;skip to start of next var inside group
     pop af
-    jp  c,gatherFiles_traverseAndUpdateFontvars_conclude   ;Not a font variable, keep looking.
+    jp  c,gatherFiles_traverseAndUpdateFontvars_conclude    ;Mismatched header
     ld  a,e
     cp  a,d
-    jr  nz,gatherFiles_traverseAndUpdateFontvars_conclude   ;Not a font variable of the correct filetype.
-    ;If we got here, then this is a font variable of the correct filetype. Commit it.
-    ld  de,(iy+fontvars)   ;Pointer to fontvar_t struct
+    jr  nz,gatherFiles_traverseAndUpdateFontvars_conclude   ;Mismatched filetyep
+    ld  de,(iy+fontvars)
     ld  a,(de)             ;Current varcount
     inc a
-    jr  z,gatherFiles_traverseAndUpdateFontvars_conclude   ;No more slots to write
+    jr  z,gatherFiles_traverseAndUpdateFontvars_conclude    ;Ran out of slots
     ld  (de),a
     inc de
     push hl
@@ -398,9 +400,219 @@ _uninstallHook2:
 
 
 ;-----------------------------------------------------------------------------
-; 
+; extern const uint8_t fontpackHeader[];
 
 section .text
 public _fontpackHeader
 _fontpackHeader:
 db $EF,$7B,$18,$0C,"FNTPK",0
+
+;-----------------------------------------------------------------------------
+;TODO: PREP FOR UNIFIED COPY/RENDER
+;SAVE ON SOME CODE BY PASSING THROUGH THE FONT OBJECT AND STAGING A MOCK
+;HOOK EVENT TO GET THE DATA WHERE IT NEEDS TO BE PRIOR TO RENDERING.
+;THEN, RENDER BASED ON SMALL FONT OR LARGE FONT VARIANTS. FOR THIS TO WORK,
+;USE THE APPROPRIATE SYSTEM CALLS TO STAGE THE DEFAULT FONT DATA AND THEN CALL
+;THE HOOK TO, AT ITS OPTION, OVERRIDE IT.
+
+;Large font data is copied to lFont_record, with glyph width at offset 0 and
+;actual data at lFont_record+1. Actual homescreen rendering starts with rendering
+;the three bytes at prevDData, pre-cleared prior to rendering. The homescreen
+;renderer also manually clears the width byte and draws 18 rows of 14 pixels.
+;The actual font data is 14 rows of 12 pixels stored.
+;Only the 5 most significant bits in the first byte are used for rendering.
+;The three least significant bytes are unused. The entire second byte is used.
+;e.g.: db %11111000, %11111111 ;represents a full row of 12 pixels. The first 
+;byte's last three bits are ignored. (We're going to pretend for a hot minute
+;that the final bit in the 2nd byte is also unused because including that
+;causes the number of bits we have to add up to 13, not 12.)
+;
+;Small font data is copied to sFont_record, with glyph width at offset 0 and
+;actual data at sFont_record+1. If the width is 8 or less, one byte represents
+;a full row of pixels, left-aligned. If the width is more than 8, two bytes are
+;used. If the width is greater than 16, clamp the width to 16 internally.
+;Any string rendering code does not clamp this way and will space accordingly.
+;
+;If there are any questions about the above, use the build tools to build a
+;font, then examine the sources in the `obj` and `src` folders to see how
+;the data is formed and used.
+;
+
+;extern uint8_t drawGlyph(uint8_t *fontDataStart, uint8_t fontType, uint8_t glyphIndex, int16_t x, int16_t y);
+;Returns width of character drawn.
+
+section .text
+
+dgoffset        EQU 12
+fontdatastart   = 3+dgoffset
+fonttype        = 6+dgoffset
+glyphindex      = 9+dgoffset
+xcoord          = 12+dgoffset
+ycoord          = 15+dgoffset
+
+public _drawGlyph
+_drawGlyph:
+    push ix
+    ld  iy,flags
+    ld  a,(iy+$35)  ;Preserve hooks relevant to font rendering.
+    push af
+    ld  (iy+$35),0  ;Temporarily kill those hooks.
+    ld  hl,(fontHookPtr)
+    push hl
+    ld  hl,(localizeHookPtr)
+    push hl
+    or  a,a
+    sbc hl,hl
+    add hl,sp
+    push hl
+    pop ix
+    ;---
+    or  a,a
+    sbc hl,hl   ;ensure HLU is cleared
+    ex  de,hl
+    ld  e,(ix+xcoord+0)
+    ld  d,(ix+xcoord+1)     ;x pos is up to 2 bytes (0-320)
+    ld  L,(ix+ycoord+0)     ;y pos is just one byte (0-240). We can cast like this.
+    ld  H,160               ;half of 320. We factored out the other half.
+    mlt hl
+    add hl,hl               ;factored back in. Now have row start in buffer.
+    add hl,de               ;now have position in a buffer.
+    ld  de,(DRAW_BUFFER)    ;select the buffer
+    add hl,de               ;We now have full address.
+    push hl
+        ld  hl,(ix+fontdatastart)   ;Pointer to start of font data
+        call getHookLocation
+        push ix
+            call _SetLocalizeHook ;temporarily install this hook. _LoadPattern uses this.
+        pop ix
+        ld  a,(ix+fonttype) ;0=large,1=small
+        sub a,1     ;carry if large
+        sbc a,a     ;$FF if large, 0 if small.
+        and a,00000100b   ;isolate new fracDrawLFont bit.
+        ld  b,a
+        cpl
+        and a,(iy+$32)  ;clear out our target bit
+        or  a,b         ;set it to the new value
+        ld  (iy+$32),a
+        ld  a,(ix+glyphindex)
+        call _LoadPattern   ;Returns HL = target location (width-prefix)
+        bit 2,(iy+$32)
+    pop de
+    push hl  ;###
+        jr  z,drawGlyph_smallFont
+        ;--- LARGE FONT RENDERING
+        ;ENTRY POINT TO SPLIT:
+        ;HL = drawing font data from this address.
+        ;DE = buffer location to draw to
+        inc hl
+        ld  c,14
+drawGlyph_largeFont_rowLoop:
+        ld  b,5
+drawGlyph_largeFont_innerLoopA:
+        rl  (hl)    ;nc=transparent, c=black
+        ccf
+        sbc a,a     ;$FF if empty, 0 if filled
+        jr  z,$+3   ;black is color 0 so skip if not transparent.
+        ld  a,(de)  ;old color if transparent
+        ld  (de),a
+        inc de
+        djnz drawGlyph_largeFont_innerLoopA
+        inc hl
+        ld  b,8
+drawGlyph_largeFont_innerLoopB:
+        rl  (hl)    ;nc=transparent, c=black
+        ccf
+        sbc a,a     ;$FF if empty, 0 if filled  
+        jr  z,$+3   ;black is color 0 so skip if not transparent.
+        ld  a,(de)  ;old color if transparent
+        ld  (de),a
+        inc de
+        djnz drawGlyph_largeFont_innerLoopB
+        inc hl
+        push hl
+            ld hl,320-13
+            add hl,de
+            ex  de,hl
+        pop hl
+        dec c
+        jr  nz,drawGlyph_largeFont_rowLoop
+        jr  drawGlyph_end
+drawGlyph_smallFont:
+        ;--- SMALL FONT RENDERING
+        ;ENTRY POINT TO SPLIT:
+        ;HL = drawing font data from this address.
+        ;DE = buffer location to draw to
+        ld  a,(hl) ;width byte
+        or  a,a
+        jr  z,drawGlyph_end   ;If width is zero, skip drawing.
+        inc hl
+        cp  a,9
+        ld  c,12
+        jr  c,drawGlyph_smallFont_narrow
+        ;--- WIDE SMALL FONT RENDERING (9-16 pixels wide)
+drawGlyph_smallFont_wide_rowLoop:
+        ld  b,8
+drawGlyph_smallFont_wide_innerLoopA:
+        rl  (hl)    ;nc=transparent, c=black
+        ccf
+        sbc a,a     ;$FF if empty, 0 if filled
+        jr  z,$+3   ;black is color 0 so skip if not transparent.
+        ld  a,(de)  ;old color if transparent
+        ld  (de),a
+        inc de
+        djnz drawGlyph_smallFont_wide_innerLoopA
+        inc hl
+        ld  b,8
+drawGlyph_smallFont_wide_innerLoopB:
+        rl  (hl)    ;nc=transparent, c=black
+        ccf
+        sbc a,a     ;$FF if empty, 0 if filled
+        jr  z,$+3   ;black is color 0 so skip if not transparent.
+        ld  a,(de)  ;old color if transparent
+        ld  (de),a
+        inc de
+        djnz drawGlyph_smallFont_wide_innerLoopB
+        inc hl
+        push hl
+            ld hl,320-16
+            add hl,de
+            ex  de,hl
+        pop hl
+        dec c
+        jr  nz,drawGlyph_smallFont_wide_rowLoop
+        jr  drawGlyph_end
+drawGlyph_smallFont_narrow:
+drawGlyph_smallFont_narrow_rowLoop:
+        ld  b,8 
+drawGlyph_smallFont_narrow_innerLoop:
+        rl  (hl)    ;nc=transparent, c=black
+        ccf
+        sbc a,a     ;$FF if empty, 0 if filled
+        jr  z,$+3   ;black is color 0 so skip if not transparent.
+        ld  a,(de)  ;old color if transparent
+        ld  (de),a
+        inc de
+        djnz drawGlyph_smallFont_narrow_innerLoop
+        inc hl
+        push hl
+            ld hl,320-8
+            add hl,de
+            ex  de,hl
+        pop hl
+        dec c
+        jr  nz,drawGlyph_smallFont_narrow_rowLoop
+drawGlyph_end:
+    pop hl ;###
+    ld  b,(hl)
+    ;---
+    pop hl
+    ld (localizeHookPtr),hl
+    pop hl
+    ld (fontHookPtr),hl
+    pop af
+    ld  (flags+$35),a
+    pop ix
+    ld  a,b
+    ret
+
+

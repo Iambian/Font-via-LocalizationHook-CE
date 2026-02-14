@@ -18,14 +18,12 @@ typedef struct {
 	uint8_t maxvars;	//Number of variables found for the current variable type. Should be <=255 due to varcount being a uint8_t, but no bounds checking is done. If 0, varindex is invalid and should not be used to index into fontvars.
 } state_t;
 
-extern void		DrawLFontExample( void *data );	/*Externally defined */
-extern void		DrawSFontExample( void *data );	/*Externally defined */
-
 /* New functions here */
 extern void gatherFiles(uint8_t vartypeidx, fontvar_t *fontvars);
 extern bool isInstalled(uint8_t *startOfVarData);
 extern void installHook2(uint8_t *startOfVarData);
 extern void uninstallHook2(void);
+extern uint8_t drawGlyph(uint8_t *fontDataStart, uint8_t fontType, uint8_t glyphIndex, int16_t x, int16_t y);
 
-
+extern const uint8_t fontpackHeader[];
 

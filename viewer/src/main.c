@@ -46,6 +46,10 @@ void drawBuffer(void);
 void updateState(void);
 kb_key_t keyRead(void);
 void printName(uint8_t *nameptr);
+void drawTestArea(void);
+void printStr(uint8_t *strptr, int x, int y);
+uint8_t printChr(uint8_t c, int x, int y);
+
 
 /* Put all your globals here */
 
@@ -54,6 +58,7 @@ void printName(uint8_t *nameptr);
 #define LINE_HEIGHT 10
 #define STATUS_COLSTART 8
 #define DETAILS_COLSTART 128
+#define BANNER_BOTTOM (SCREEN_TOP + (4*LINE_HEIGHT) + 3)
 
 #define COLOR_BACKGROUND 0xBE
 #define COLOR_TEXT 0x00
@@ -179,19 +184,19 @@ void drawBuffer(void) {
 	// Clear screen and draw border line between status and render area
 	gfx_FillScreen(COLOR_BACKGROUND);
 	gfx_SetColor(COLOR_TEXT);
-	gfx_HorizLine(0, SCREEN_TOP + (3*LINE_HEIGHT), 320);
+	gfx_HorizLine(0, SCREEN_TOP + (4*LINE_HEIGHT), 320);
 
 	// Draw title and status box
 	gfx_SetTextXY(STATUS_COLSTART,SCREEN_TOP + (0*LINE_HEIGHT));
-	gfx_PrintString("* Font Viewer *");
+	gfx_PrintString("* Font  Viewer *");
 
 	gfx_SetTextXY(STATUS_COLSTART,SCREEN_TOP + (2*LINE_HEIGHT));
 	if (appstate.fonttype == 0) {
-		gfx_PrintString("LGFONT");
+		gfx_PrintString("LRG FONT");
 	} else {
-		gfx_PrintString("SMFONT");
+		gfx_PrintString("SML FONT");
 	}
-	gfx_SetTextXY(STATUS_COLSTART + 56,SCREEN_TOP + (2*LINE_HEIGHT));
+	gfx_SetTextXY(STATUS_COLSTART + 72,SCREEN_TOP + (2*LINE_HEIGHT));
 	if (appstate.textdisptype) {
 		gfx_PrintString("SNTNC");
 	} else {
@@ -241,16 +246,22 @@ void drawBuffer(void) {
 			gfx_PrintString("INSTALLED");
 		} else {
 			oldcolor = gfx_SetTextFGColor(COLOR_REDTEXT);
-			gfx_PrintString("NOT INSTALLED");
+			gfx_PrintString("NOT  INSTALLED");
 		}
 	} else {
 		gfx_PrintString("** No fonts found **");
 		gfx_SetTextXY(STATUS_COLSTART,SCREEN_TOP + (1*LINE_HEIGHT));
 		oldcolor = gfx_SetTextFGColor(COLOR_REDTEXT);
-		gfx_PrintString("NOT FOUND");
+		gfx_PrintString("NOT  FOUND");
 	}
 	gfx_SetTextFGColor(oldcolor);
+	gfx_SetTextXY(2,SCREEN_TOP + (3*LINE_HEIGHT));
+	gfx_PrintString("\x12:Fnt  \x1D:Type  Y=:Siz  2nd:Tst  DEL:inst  MODE:Quit");
+	//gfx_SetTextXY(STATUS_COLSTART,SCREEN_TOP + (4*LINE_HEIGHT));
+	//gfx_PrintString("[Y=]L/S size    [2ND]Text test type    [MODE]Exit");
 
+	// Draw font rendering test area
+	drawTestArea();
 }
 
 kb_key_t keyRead(void) {
@@ -278,3 +289,114 @@ void printName(uint8_t *nameptr) {
 }
 
 
+
+#define TEST_COLSTART 0
+#define SENTENCE_COLSTART 8
+
+// Test area text has to start at y=BANNER_BOTTOM
+#define LFONT_LINEHEIGHT 16
+// Large font: max 22 chars per line. We need at least 12 lines.
+#define SFONT_LINEHEIGHT 14
+// Small font: limit 20 chars per line. We need 13 lines.
+
+
+void drawTestArea(void) {
+	int y;
+
+	y = BANNER_BOTTOM;
+	if (appstate.textdisptype) {
+		// Render sentences (e.g. "The quick brown fox jumps over the lazy dog.")
+		if (appstate.fonttype == 0) {
+			// Large font: max 22 chars per line. We need at least 12 lines.
+			printStr((uint8_t*)"the quick brown fox", SENTENCE_COLSTART, y);
+			y += LFONT_LINEHEIGHT;
+			printStr((uint8_t*)"jumps over the lazy", SENTENCE_COLSTART, y);
+			y += LFONT_LINEHEIGHT;
+			printStr((uint8_t*)"dog.", SENTENCE_COLSTART, y);
+			y += LFONT_LINEHEIGHT;
+			printStr((uint8_t*)"THE QUICK BROWN FOX", SENTENCE_COLSTART, y);
+			y += LFONT_LINEHEIGHT;
+			printStr((uint8_t*)"JUMPS OVER THE LAZY", SENTENCE_COLSTART, y);
+			y += LFONT_LINEHEIGHT;
+			printStr((uint8_t*)"DOG.", SENTENCE_COLSTART, y);
+			y += LFONT_LINEHEIGHT;
+			printStr((uint8_t*)"sphinx of black", SENTENCE_COLSTART, y);
+			y += LFONT_LINEHEIGHT;
+			printStr((uint8_t*)"quartz, judge", SENTENCE_COLSTART, y);
+			y += LFONT_LINEHEIGHT;
+			printStr((uint8_t*)"my vow.", SENTENCE_COLSTART, y);
+			y += LFONT_LINEHEIGHT;
+			printStr((uint8_t*)"SPHINX OF BLACK", SENTENCE_COLSTART, y);
+			y += LFONT_LINEHEIGHT;
+			printStr((uint8_t*)"QUARTZ, JUDGE", SENTENCE_COLSTART, y);
+			y += LFONT_LINEHEIGHT;
+			printStr((uint8_t*)"MY VOW.", SENTENCE_COLSTART, y);
+
+		} else {
+			// Small font: limit 20 chars per line. We need 13 lines.
+			printStr((uint8_t*)"the quick brown", SENTENCE_COLSTART, y);
+			y += SFONT_LINEHEIGHT;
+			printStr((uint8_t*)"fox jumps over", SENTENCE_COLSTART, y);
+			y += SFONT_LINEHEIGHT;
+			printStr((uint8_t*)"the lazy dog.", SENTENCE_COLSTART, y);
+			y += SFONT_LINEHEIGHT;
+			printStr((uint8_t*)"THE QUICK BROWN", SENTENCE_COLSTART, y);
+			y += SFONT_LINEHEIGHT;
+			printStr((uint8_t*)"FOX JUMPS OVER", SENTENCE_COLSTART, y);
+			y += SFONT_LINEHEIGHT;
+			printStr((uint8_t*)"THE LAZY DOG.", SENTENCE_COLSTART, y);
+			y += SFONT_LINEHEIGHT;
+			printStr((uint8_t*)"sphinx of black", SENTENCE_COLSTART, y);
+			y += SFONT_LINEHEIGHT;
+			printStr((uint8_t*)"quartz, judge", SENTENCE_COLSTART, y);
+			y += SFONT_LINEHEIGHT;
+			printStr((uint8_t*)"my vow.", SENTENCE_COLSTART, y);
+			y += SFONT_LINEHEIGHT;
+			printStr((uint8_t*)"SPHINX OF BLACK", SENTENCE_COLSTART, y);
+			y += SFONT_LINEHEIGHT;
+			printStr((uint8_t*)"QUARTZ, JUDGE", SENTENCE_COLSTART, y);
+			y += SFONT_LINEHEIGHT;
+			printStr((uint8_t*)"MY VOW.", SENTENCE_COLSTART, y);
+		}
+	} else {
+		// Render ASCII characters in order (e.g. " !\"#$%&'()*+,-./0123456789:;<=>?@ABCDEFGHIJKLMNOPQRSTUVWXYZ[\\]^_`abcdefghijklmnopqrstuvwxyz{|}~")
+		if (appstate.fonttype == 0) {
+			// Large font: max 22 chars per line. We need at least 12 lines.
+			// Programmatically display characters 0x00 to 0xF9
+			uint8_t c,i,j;
+			y = BANNER_BOTTOM;
+			for (i=0,c=0; i<12; i++) {
+				for (j=0; j<22 && c<=0xF9; j++,c++) {
+					printChr(c, TEST_COLSTART + (j*14), y);
+				}
+				y += LFONT_LINEHEIGHT;
+			}
+		} else {
+			// Small font: limit 20 chars per line. We need 13 lines.
+			// Programmatically display characters 0x00 to 0xF9
+			uint8_t c,i,j;
+			y = BANNER_BOTTOM;
+			for (i=0,c=0; i<13; i++) {
+				for (j=0; j<20 && c<=0xF9; j++,c++) {
+					printChr(c, TEST_COLSTART + (j*16), y);
+				}
+				y += SFONT_LINEHEIGHT;
+			}
+		}
+	}
+}
+
+
+void printStr(uint8_t *strptr, int x, int y) {
+	uint8_t chrwidth;
+	uint8_t c;
+	while ((c = *strptr)) {
+		strptr++;
+		chrwidth = drawGlyph((uint8_t*)fontvars.vardata[appstate.varindex], appstate.fonttype, c, x, y);
+		x += chrwidth;
+	}
+}
+
+uint8_t printChr(uint8_t c, int x, int y) {
+	return drawGlyph((uint8_t*)fontvars.vardata[appstate.varindex], appstate.fonttype, c, x, y);
+}

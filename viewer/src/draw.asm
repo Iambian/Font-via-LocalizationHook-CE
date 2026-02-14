@@ -1,3 +1,10 @@
+;
+; Warning: This file was delinked from the project.
+; This file will remain here for reference purposes.
+; The new file `util.asm` will be taking the place
+; of this file for the purposes of the Viewer project.
+;
+
 assume adl=1
 
 

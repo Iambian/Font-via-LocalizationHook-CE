@@ -84,11 +84,11 @@ The Font Viewer (FONTVIEW.8xp) is located in `viewer/bin/`. It allows you to bro
 preview, and install font packages without running individual programs.
 
 **Controls:**
-* **Up/Down arrows** - Change file type (PROTPROG/APPVAR/GROUP)
+* **Up/Down arrows** - Change file type (PROTPROG/APPVAR/GROUPPROG/GROUPAVAR)
 * **Left/Right arrows** - Browse through available fonts
-* **Y=** - Toggle between large font and small font preview
-* **2nd** - Install the currently selected font
-* **DEL** - Uninstall the current font
+* **Y=** - Toggle between large font and small font preview 
+* **2nd** - Change the font test view between all-characters and sentences.
+* **DEL** - (Un)install the current font
 * **MODE** - Exit viewer
 
 **File Types:**
@@ -106,25 +106,12 @@ The viewer is pre-built, but to rebuild it:
 2. Navigate to the `viewer` folder.
 3. Run `make` to build FONTVIEW.8xp.
 
-Remaining TODO List
--------------------
+TODO
+----
 
-**Completed:**
-* ✅ Font viewer/previewer tool built and functional
-* ✅ Support for multiple fonts with different names
-* ✅ Encoding JSON system implemented (`builder/encoding/`)
-* ✅ Font files (.ttf/.otf) removed from repository (gitignored)
-* ✅ Catalog help corruption fixed (handled in hook)
-* ✅ Matrix editor event bugs fixed
-* ✅ Stub headers generated for font editor project integration
-* ✅ Documentation for builder and hook tools
+* Refine vertical positioning of individual converted characters.
+* Stretch goal: Add full editor UI to dispense with all that testing and guessing.
 
-**Outstanding:**
-* `packer.py` could use refinement: better height adjustment algorithm and
-  per-character offset storage for improved font rendering.
-* Consider renaming `builder` to `packer` (currently blocked by Windows file locks).
-* Examples may include copyrighted material - verify licensing or replace with
-  confirmed free fonts.
 
 Licenses
 --------
