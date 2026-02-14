@@ -1,0 +1,87 @@
+; This file exists purely as a reference.
+; This should not be assembled or linked into the project,
+; and is not intended to be built.
+;
+
+08C959     6F            ld l,a
+08C95A     FDCB3256      bit 2,(iy+$32)
+08C95E     2006          jr nz,$08C966  ;if set, jump to large font render.
+08C960     FDCB3276      bit 6,(iy+$32) ;flag not documented.
+08C964     280F          jr z,$08C975   ;if set, force large font, else small font.
+large_font_render:
+08C966     261C          ld h,$1C
+08C968     ED6C          mlt hl
+08C96A     CD524006      call $064052
+08C96E     21A405D0      ld hl,lFont_record
+08C972     360C          ld (hl),$0C    ;width=12? Read this then clear it for render.
+08C974     C9            ret
+small_font_render:
+08C975     2619          ld h,$19
+08C977     ED6C          mlt hl
+08C979     CD6A0709      call $09076A
+08C97D     C9            ret
+
+
+handle_large_font:
+064052     FDCB356E      bit 5,(iy+$35)     ;set if font hook active
+064056     2809          jr z,$064061
+064058     47            ld b,a
+064059     3E01          ld a,$01
+06405B     CDA12D02      call $022DA1
+06405F     78            ld a,b
+064060     C8            ret z
+
+064061     FDCB354E      bit 1,(iy+$35)     ;set if localize hook active
+064065     2809          jr z,$064070
+064067     47            ld b,a
+064068     3E76          ld a,$76
+06406A     CD322D02      call $022D32
+06406E     78            ld a,b
+06406F     C8            ret z
+064070     EB            ex de,hl
+064071     CD800300      call $000380
+064075     19            add hl,de
+064076     11000000      ld de,$000000
+06407A     ED53A105D0    ld ($D005A1),de    ;clear off top bits
+06407F     ED53A305D0    ld ($D005A3),de
+064084     11A505D0      ld de,lFont_record+1
+064088     011C0000      ld bc,$00001C
+06408C     EDB0          ldir
+06408E     21A105D0      ld hl,prevDData
+064092     EDA0          ldi        ;copy those cleared bits from prevdata to
+064094     EDA0          ldi        ;the bottom of the glyph draw area
+064096     EDA0          ldi
+064098     EDA0          ldi
+06409A     21A105D0      ld hl,prevDData
+06409E     C9            ret
+
+handle_small_font:
+09076A     C5            push bc
+09076B     FDCB354E      bit 1,(iy+$35)
+09076F     280A          jr z,$09077B
+090771     47            ld b,a
+090772     3E75          ld a,$75
+090774     CD322D02      call $022D32
+090778     78            ld a,b
+090779     280F          jr z,$09078A
+09077B     1140EE08      ld de,$08EE40
+09077F     19            add hl,de
+090780     11C505D0      ld de,sFont_record
+090784     01190000      ld bc,$000019
+090788     EDB0          ldir
+09078A     21DE05D0      ld hl,$D005DE
+09078E     AF            xor a,a
+09078F     77            ld (hl),a
+090790     13            inc de
+090791     EDA0          ldi
+090793     EDA0          ldi
+090795     EDA0          ldi
+090797     21C505D0      ld hl,sFont_record
+09079B     C1            pop bc
+09079C     C9            ret
+
+
+
+
+
+

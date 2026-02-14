@@ -1,2 +1,3 @@
-/tools/fontedit
-/tools/mkwinfont-master
+/hook/obj
+/builder/fonts/*.ttf
+/viewer/obj
