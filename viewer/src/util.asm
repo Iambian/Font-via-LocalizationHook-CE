@@ -1,0 +1,303 @@
+; Utility file to replace draw.asm 
+;
+
+assume adl=1
+
+flags             EQU $D00080 ;As defined in ti84pce.inc
+_LoadPattern      EQU $021164 ;''
+_FindAlphaDn      EQU $020E90 ;''
+_FindAlphaUp      EQU $020E8C ;''
+_ChkFindSym       EQU $02050C ;''
+_ChkInRam         EQU $021F98 ;'' In: DE=adr. Out: NC if in RAM, C if in arc.
+_PopRealO1        EQU $0205DC ;''
+_PopRealO2        EQU $0205D8 ;''
+_PopRealO4        EQU $0205D0 ;''
+_PushRealO1       EQU $020614 ;''
+_PushRealO4       EQU $020608 ;''
+_SetLocalizeHook  EQU $0213F0 ;''
+_ClrLocalizeHook  EQU $0213F4 ;''
+_SetFontHook      EQU $021454 ;''
+_ClrFontHook      EQU $021458 ;''
+
+prevDData         EQU $D005A1 ;''
+lFont_record      EQU $D005A4 ;''
+sFont_record      EQU $D005C5 ;''
+Op1               EQU $D005F8 ;''
+Op2               EQU $D00603 ;''
+Op3               EQU $D0060E ;''
+Op4               EQU $D00619 ;''
+Op5               EQU $D00624 ;''
+Op6               EQU $D0062F ;''
+pTemp			EQU 0D0259Ah
+progPtr			EQU 0D0259Dh
+ProtProgObj		EQU 6
+AppVarObj		EQU 15h	;application variable
+GroupObj		EQU 17h ;group.
+
+DRAW_BUFFER       EQU $E30014
+fontdata_offset   EQU 3
+
+
+
+;ABI notes so I don't have to keep looking back at the documentation:
+;   NOTE: This section uses UHL/UDE/UBC to refer to the entire 3 byte register.
+;       not merely the upper byte of the register mentioned.
+;   Assembly routines must preserve IX and SP. All other registers are free.
+;   Arguments pushed from last to first corresponding to the C prototype.
+;   In this way, you can repeatedly pop arguments to access variables from
+;   first to last. The first pop is always the return address; retain it.
+;   Return values are always in registers. for 1 byte returns, use A.
+;   For 2 byte returns, use HL. For 3 byte returns, use UHL.
+;   3 byte returns are used both for int and pointers.
+;   We will not deal in returns more than 3 bytes, but if you must, the pattern
+;   continues by consuming DE, and then BC. The longest is BC:UDE:UHL
+
+
+;-----------------------------------------------------------------------------
+;void gatherFiles(uint8_t vartypeidx, fontvar_t *fontvars);
+;typedef struct {
+;    uint8_t varcount;
+;    intptr_t groupname[255];
+;    intptr_t varname[255];
+;    intptr_t vardata[255];
+;} fontvar_t;
+; This method iterates over the filesystem, filling out the above struct with
+; as many values as findable. Searching stops if varcount reaches 255.
+; A varcount of 0 means that there were no files found. Entries in each array
+; that is not in range of varcount is OOB and should not be used.
+
+section .text
+
+;The two equates below have +3 added to overcome the push ix at the start of _gatherFiles.
+vartypeidx equ 6
+fontvars equ 9
+
+public _gatherFiles
+require strcmp
+_gatherFiles:
+    push ix     ;MUST PRESERVE THIS
+    ;---
+    or  a,a
+    sbc hl,hl
+    add hl,sp
+    push hl
+    pop iy
+    ld  hl,(iy+fontvars)
+    ld  (hl),0    ;init varcount to 0
+    ld  ix,(progPtr)
+    jr  gatherFiles_detecting
+gatherFiles_detectLoop:
+    ; Main loop for traversing the VAT, looking for variables that could
+    ; match the type we are looking for. Terminate loop at end of VAT.
+    call traverseVat
+    jr  c,gatherFiles_lookupConcluded
+gatherFiles_detecting:
+    ld  a,(ix+0)
+    and a,$1F   ;Mask out flags to get variable type
+    ld  b,a     ;Save variable type in B for later comparison
+    ;Retrieve variable type from index
+    call gatherFiles_retrieveFiletype
+    cp  a,b
+    jr  nz,gatherFiles_detectLoop
+    ;If we got here, then IX is at a variable of the correct type. Gather info.
+    ld  de,(ix-7)   ;puts "page" byte in DEU
+    ld  e,(ix-3)
+    ld  d,(ix-4)
+    call _ChkInRam
+    jr  nc,gatherFiles_detectLoop    ;We do not deal in objects in RAM.
+    ld  a,b
+    cp  a,GroupObj
+    jr  z,gatherFiles_actOnGroup
+    ;If we got here, then this is a non-group variable of the correct type.
+    or  a,a
+    sbc hl,hl
+    ld  (gatherFiles_traverseAndUpdateFontvars_groupNamePtrSMC),hl  ;init
+    ld  (gatherFiles_traverseAndUpdateFontvars_groupEOFSMC),hl      ;force exit from loop after one iteration, as non-group vars only have one var entry.
+    ex  de,hl   ;HL=pointer to variable header area
+    inc hl
+    inc hl
+    inc hl  ;Skip past Flash flag and pre-variable size bytes.
+    call gatherFiles_traverseAndUpdateFontvars
+    jr  gatherFiles_detectLoop
+gatherFiles_actOnGroup:
+    push ix
+    push iy
+    ;---
+    ld  bc,9    ;3 extra bytes at start. First is archive flag. Next two are size bytes. The rest is standard VAT copy up to name size byte.
+    ex  de,hl   ;HL=pointer to variable header area
+    add hl,bc
+    ld  (gatherFiles_traverseAndUpdateFontvars_groupNamePtrSMC),hl
+    ld  c,(hl)
+    inc hl
+    add hl,bc
+    ld  c,(hl)
+    inc hl
+    ld  b,(hl)
+    inc hl
+    push hl
+        add hl,bc
+        ld  (gatherFiles_traverseAndUpdateFontvars_groupEOFSMC),hl
+    pop hl
+    call gatherFiles_traverseAndUpdateFontvars  ;entire loop inside this.
+    ;---
+    pop iy 
+    pop ix
+    jr  gatherFiles_detectLoop  
+gatherFiles_lookupConcluded:
+    ;---
+    pop ix
+    ret
+
+;in: HL = pointer to start of variable header area in an archived variable
+;    IY = _gatherFiles stack frame pointer at entry
+;    Also, write the internal group name pointer, as this won't write that.
+;NOTE: There is no difference between a group variable header and a non-group
+;   variable header inside a group variable.
+gatherFiles_traverseAndUpdateFontvars:
+    ;We are either inside a group file containing these types
+    ;or we are looking at a non-group file of these types.
+    ld  a,(iy+vartypeidx)
+    and a,1
+    jr  nz,$+6
+    ld  a,ProtProgObj
+    jr  $+4
+    ld  a,AppVarObj
+    ;---
+    ld  e,a
+    ld  a,(hl)
+    and a,$1F   ;| The check we need to do has to be done AFTER the pointer has
+    ld  d,a     ;| advanced to the next file. At that point do we choose to commit.
+    ld  bc,6
+    add hl,bc
+    ld  (gatherFiles_traverseAndUpdateFontvars_varNamePtrSMC),hl
+    ld  c,(hl)
+    inc hl
+    add hl,bc
+    ld  c,(hl)
+    inc hl
+    ld  b,(hl)  ;var filesize
+    inc hl
+    ld  (gatherFiles_traverseAndUpdateFontvars_varDataPtrSMC),hl
+    push hl
+        push de
+            ld  de,gatherFiles_fontHeader
+            call strcmp
+        pop de
+    pop hl
+    push af
+        add hl,bc   ;skip to start of next var inside group
+    pop af
+    jp  c,gatherFiles_traverseAndUpdateFontvars_conclude   ;Not a font variable, keep looking.
+    ld  a,e
+    cp  a,d
+    jr  nz,gatherFiles_traverseAndUpdateFontvars_conclude   ;Not a font variable of the correct filetype.
+    ;If we got here, then this is a font variable of the correct filetype. Commit it.
+    ld  de,(iy+fontvars)   ;Pointer to fontvar_t struct
+    ld  a,(de)             ;Current varcount
+    inc a
+    jr  z,gatherFiles_traverseAndUpdateFontvars_conclude   ;No more slots to write
+    ld  (de),a
+    inc de
+    push hl
+        dec a       ;referencing position N-1
+        ld  h,a
+        ld  l,3
+        mlt hl
+        add hl,de   ;Advance to groupname[varcount-1]
+        ld  bc,255*3
+        ;write the thing below externally
+gatherFiles_traverseAndUpdateFontvars_groupNamePtrSMC = $+1
+        ld  de,0    ;NOTE: This will be uninitialized if not group. That's fine, as it will not be read in that case.
+        ld  (hl),de
+        add hl,bc
+gatherFiles_traverseAndUpdateFontvars_varNamePtrSMC  = $+1
+        ld  de,0
+        ld  (hl),de
+        add hl,bc
+gatherFiles_traverseAndUpdateFontvars_varDataPtrSMC  = $+1
+        ld  de,0
+        ld  (hl),de
+    pop hl
+gatherFiles_traverseAndUpdateFontvars_conclude:
+    push hl
+gatherFiles_traverseAndUpdateFontvars_groupEOFSMC = $+1
+        ld  de,0
+        or  a,a
+        sbc hl,de   ;curptr-EOF. If not carry, we are at or past EOF.
+    pop hl
+    ret nc
+    jp  gatherFiles_traverseAndUpdateFontvars
+
+;---
+;in: stack frame in IY.
+;out: A=filetype to look for (group, appvar, or protprog)
+gatherFiles_retrieveFiletype:
+    ld  a,(iy+vartypeidx)
+    bit 1,a
+    jr  z,gatherFiles_retrieveFiletype_notGroup
+    ld  a,GroupObj
+    ret
+gatherFiles_retrieveFiletype_notGroup:
+    rrca
+    jr  nc,gatherFiles_retrieveFiletype_notAppVar
+    ld  a,AppVarObj
+    ret
+gatherFiles_retrieveFiletype_notAppVar:
+    ld  a,ProtProgObj
+    ret
+
+gatherFiles_fontHeader:
+db $EF,$7B,$18,$0C,"FNTPK",0
+
+
+;-----------------------------------------------------------------------------
+;Internal routine. Do not expose to the C runtime.
+;Input: IX = Pointer in VAT
+;Output: carry if IX is at or after end of program VAT
+
+section .text
+private traverseVat
+traverseVat:
+    ld  hl,(pTemp)
+    lea de,ix+0
+    or  a,a
+    sbc hl,de   ;If this stops carrying, we are no longer in program VAT.
+    ccf
+    ret c
+    sbc hl,hl
+    ;T=-0, T2=-1, Ver=-2 DAL=-3, DAH=-4, PAGE=-5, NL=-6, NAME=-7-N
+    lea de,ix-6
+    ex  de,hl
+    ld  e,(hl)
+    sbc hl,de   ;always results in NC
+    dec hl
+    push hl
+    pop ix
+    ret
+
+;-----------------------------------------------------------------------------
+;Internal routine. Do not expose to the C runtime.
+;In: HL=str1, DE=str2.
+;Out: C=not equal, NC=equal
+;Destroys: HL, DE, A
+
+section .text
+private strcmp
+strcmp:
+    ld  a,(de)
+    cp  a,(hl)
+    inc de
+    inc hl
+    jr  nz,strcmp_notEqual
+    or  a,a
+    ret z
+    jr  strcmp
+strcmp_notEqual:
+    scf
+    ret
+
+
+
+
+
+

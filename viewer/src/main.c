@@ -1,36 +1,22 @@
 /*
  *--------------------------------------
  * Program Name: Font Pack Previewer
- * Author: hehe
- * License: do whatever
+ * Author: Iambian
+ * License: MIT License
  * Description: A font pack previewer
  *--------------------------------------
 */
 
-#define COLOR_DARKER (0<<6)
-#define COLOR_DARK (1<<6)
-#define COLOR_LIGHT (2<<6)
-#define COLOR_LIGHTER (3<<6)
-
-#define COLOR_RED (3<<4)
-#define COLOR_MAROON (2<<4)
-#define COLOR_LIME (3<<2)
-#define COLOR_GREEN (2<<2)
-#define COLOR_BLUE (3<<0)
-#define COLOR_NAVY (2<<0)
-
-#define COLOR_MAGENTA (COLOR_RED|COLOR_BLUE)
-#define COLOR_PURPLE (COLOR_MAROON|COLOR_NAVY)
-#define COLOR_YELLOW (COLOR_RED|COLOR_LIME)
-#define COLOR_CYAN (COLOR_LIME|COLOR_BLUE)
-#define COLOR_WHITE (COLOR_RED|COLOR_BLUE|COLOR_LIME)
-#define COLOR_GRAY (COLOR_MAROON|COLOR_GREEN|COLOR_NAVY)
-#define COLOR_DARKGRAY ((1<<4)|(1<<2)|(1<<0))
-#define COLOR_BLACK 0
-
-#define TRANSPARENT_COLOR (COLOR_LIGHTER|COLOR_MAGENTA)
-
-#define DEFAULT_COLOR COLOR_GREEN
+// Instructions image:
+// "L/R: CHNGFONT | U/D: CHNGTYPE | DEL: (UN)INSTALL | MODE: EXIT | Y=: CHNGSIZE | 2ND: CHNGTXT"
+/* Controls:
+	Left/Right: Change font
+	Up/Down: Change variable type (Program/Appvar/ProgramsInGroup/AppvarsInGroup)
+	Delete: Install/Uninstall font pack
+	2ND: Change text to display (ABC/Test Sentences)
+	Y=: Change font size (Large/Small)
+	Mode: Exit
+*/
 
 /* Keep these headers */
 #include <stdbool.h>
@@ -51,252 +37,217 @@
 #include <fileioc.h>
 #include <compression.h>
 
+/* Add any other headers here */
 #include "extern.h"
 
+
 /* Put your function prototypes here */
-uint8_t 	staticMenu(const char **sarr,uint8_t numstrings);
-void 		alert(const char **sarr,uint8_t numstrings);
-
-
-
-
-/*	Controls:
-	Left/right changes vartype between progs, appvars, groups 
-	Up/Down Cycles through programs, but only if there's something to view
- 
- */
+void drawBuffer(void);
+void updateState(void);
+kb_key_t keyRead(void);
+void printName(uint8_t *nameptr);
 
 /* Put all your globals here */
-void *groupmain[257];
-void *grouptemp[257];
-unsigned int groupcurvar;
-const uint8_t typelist[] = {0x06,0x15,0x17};
-const char *typenames[] = {"PROTPROG","APPVAR","GROUP"};
-const char controlchars[] = {18,29,30,31,0};
-const char updown[] = {18,32,32,0};
-const char leftright[] = {29,32,0};
-const char *installmenu[] = {"Install this font?"," Yes "," No "};
-const char *fontinstalled[] = {"The font has been installed!"};
-const char *fontuninstalled[] = {"The font has been uninstalled!"};
 
+#define LEN(x) (sizeof(x)/sizeof(x[0]))
+#define SCREEN_TOP 4
+#define LINE_HEIGHT 10
+#define STATUS_COLSTART 8
+#define DETAILS_COLSTART 128
 
+#define COLOR_BACKGROUND 0xBE
+#define COLOR_TEXT 0x00
+#define COLOR_GREENTEXT 0x26
+#define COLOR_REDTEXT 0xE0
+
+state_t appstate = {
+	.installed = false,
+	.vartypeidx = 0,
+	.fonttype = 0,
+	.textdisptype = true,
+	.varindex = 0,
+	.maxvars = 0
+};
+
+fontvar_t fontvars;
+
+uint8_t filetypes[] = { 0x06, 0x15, 0x17, 0x17};
+uint8_t varindexbyfiletype[4];
+
+/* -------------------------------------------------------------------------- */
 int main(void) {
-	uint8_t vartype;
-	uint8_t topfile_result;
-	uint8_t dosmallfont;
-	uint8_t typeindex;
-	kb_key_t k;
-	void *ptr;
-	
+
+	kb_key_t k=0;
+	bool statechanged;
+	//uint8_t vartype;
+
 	gfx_Begin();
-	fn_Setup_Palette();
 	
 	gfx_SetDrawBuffer();
 	
-	dosmallfont = 0;
-	vartype = 0x06;
-	topfile_result = InitVarSearch(vartype);
-	typeindex = 0;
-	
-	k = kb_Yequ;	/* Key used to toggle lFont/sFont. Here, just priming screen */
-	while (k!=kb_Mode) {
+	// Initial gather of files to populate the font count and other details before initial draw
+	gatherFiles(appstate.vartypeidx, &fontvars);
+	updateState();
+	statechanged = true;	//Force initial draw
+	k = kb_2nd;		//Primes key variable for initial display and to help force initial draw without needing to press a button
+	do {
 		if (k) {
+			while (keyRead());	//Wait for all keys to be released before allowing another input to prevent multiple inputs from a single key press
+
 			/* Perform keyboard checking here */
-			if (k&kb_Yequ)		dosmallfont = !dosmallfont;
-			if (!topfile_result) {
-				if (k&kb_Left)		VarSearchPrev();
-				if (k&kb_Right)		VarSearchNext();
+			if (k & kb_2nd) {
+				appstate.textdisptype = !appstate.textdisptype;
+				statechanged = true;
 			}
-			if (k&kb_Up && typeindex>0)		--typeindex;
-			if (k&kb_Down && typeindex<2)	++typeindex;
-			if (k&(kb_Up|kb_Down)) {
-				vartype = typelist[typeindex];
-				topfile_result = InitVarSearch(vartype);
-			}
-			if (k&kb_2nd) {
-				if (staticMenu(installmenu,3)==1) {
-					InstallHook();
-					alert(fontinstalled,1);
+
+			if (k & kb_Up) {
+				if (appstate.vartypeidx > 0) {
+					varindexbyfiletype[appstate.vartypeidx] = appstate.varindex;	//Save current index for this variable type before changing
+					appstate.vartypeidx--;
+					//vartype = filetypes[appstate.vartypeidx];
+					gatherFiles(appstate.vartypeidx, &fontvars);
+					updateState();
+					statechanged = true;
 				}
 			}
-			if (k&kb_Del) {
-				if (!UninstallHook()) {
-					alert(fontuninstalled,1);
+
+			if (k & kb_Down) {
+				if (appstate.vartypeidx < (LEN(filetypes)-1)) {
+					varindexbyfiletype[appstate.vartypeidx] = appstate.varindex;	//Save current index for this variable type before changing
+					appstate.vartypeidx++;
+					//vartype = filetypes[appstate.vartypeidx];
+					gatherFiles(appstate.vartypeidx, &fontvars);
+					updateState();
+					statechanged = true;
 				}
 			}
-			
-			/* Perform lookup and graphics logic here */
-			gfx_FillScreen(COLOR_BLUE|COLOR_LIGHTER|COLOR_MAROON|COLOR_LIME);
-			gfx_SetColor(0);
-			gfx_PrintStringXY("Font Previewing Program",80,4);
-			gfx_HorizLine(0,14,320);
-			gfx_PrintStringXY(updown,16,18);
-			gfx_PrintString("Locating filetype: ");
-			gfx_PrintString(typenames[typeindex]);
-			gfx_SetTextXY(28,30);
-			gfx_HorizLine(0,44,320);
-			if (topfile_result) {
-				gfx_PrintString("*** NO FONTS FOUND ***");
-			} 
-			///*
-			else 
-			{   
-				gfx_PrintString(leftright);
-				PrintOp1();
-				if (vartype==0x17) {
-					gfx_PrintString(" :: ");
-					PrintOp4();
-				}
-				ptr = GetFontStruct();
-				if (ptr) {
-					if (dosmallfont) {
-						DrawSFontExample(ptr);
-					} else {
-						DrawLFontExample(ptr);
-					}
+
+			if (k & kb_Left) {
+				if (appstate.varindex > 0) {
+					appstate.varindex--;
+					statechanged = true;
 				}
 			}
-			//*/
-			
-			gfx_SwapDraw();
+
+			if (k & kb_Right) {
+				if (appstate.varindex < (appstate.maxvars-1)) {
+					appstate.varindex++;
+					statechanged = true;
+				}
+			}
+
+			/* Draw screen if state changed */
+			if (statechanged) {
+				drawBuffer();
+				gfx_SwapDraw();
+				statechanged = false;
+			}
 		}
-		k = GetKbd();
-	}
+		k = keyRead();
+	} while (k!=kb_Mode);
 	gfx_End();
 }
 
 /* Put other functions here */
 
+void drawBuffer(void) {
+	uint8_t oldcolor;
+	uint8_t i;
+	// Clear screen and draw border line between status and render area
+	gfx_FillScreen(COLOR_BACKGROUND);
+	gfx_SetColor(COLOR_TEXT);
+	gfx_HorizLine(0, SCREEN_TOP + (3*LINE_HEIGHT), 320);
 
-int getLongestLength(const char **sarr, uint8_t numstrings);
-void drawMenuStrings(const char **sarr, uint8_t numstrings,int xbase, uint8_t ybase, int width, uint8_t height, uint8_t index, uint8_t cbase);
-void menuRectangle(int x,uint8_t y,int w, uint8_t h, uint8_t basecolor);
+	// Draw title and status box
+	gfx_SetTextXY(STATUS_COLSTART,SCREEN_TOP + (0*LINE_HEIGHT));
+	gfx_PrintString("* Font Viewer *");
 
-void keywait() {
-	while (!kb_AnyKey()); 
-}
-
-uint8_t staticMenu(const char **sarr,uint8_t numstrings) {
-	kb_key_t k;
-	int width,xbase;
-	uint8_t height,ybase,cbase,index;
-	
-	width = getLongestLength(sarr,numstrings)+8;
-	height = (4+(numstrings-1)*12+16); //Border 4px, header 16px, others 10px
-	xbase = (LCD_WIDTH-width)/2;
-	ybase = (LCD_HEIGHT-height)/2;
-	cbase = 0x19; //A faded green, set to darkest.
-	index = 1;
-	k = kb_Yequ;
-	
-	keywait();
-	while (1) {
-		k = GetKbd();
-		
-		if (k&kb_Mode) { index = 0; break;}
-		if (k&kb_2nd) break;
-		if ((k&kb_Up) && (!--index)) index = numstrings-1;
-		if ((k&kb_Down) && (++index == numstrings)) index = 1;
-		
-		drawMenuStrings(sarr,numstrings,xbase,ybase,width,height,index,cbase);
-		//Copy results to screen
-		gfx_BlitRectangle(gfx_buffer,xbase,ybase,width,height);
+	gfx_SetTextXY(STATUS_COLSTART,SCREEN_TOP + (2*LINE_HEIGHT));
+	if (appstate.fonttype == 0) {
+		gfx_PrintString("LGFONT");
+	} else {
+		gfx_PrintString("SMFONT");
 	}
-	gfx_SetTextFGColor(0);
-	return index;
+	gfx_SetTextXY(STATUS_COLSTART + 56,SCREEN_TOP + (2*LINE_HEIGHT));
+	if (appstate.textdisptype) {
+		gfx_PrintString("SNTNC");
+	} else {
+		gfx_PrintString("ALPHA");
+	}
+
+	// Draw variable details area
+	gfx_SetTextXY(DETAILS_COLSTART, SCREEN_TOP + (1*LINE_HEIGHT));
+	switch (appstate.vartypeidx) {
+		case 0:
+			gfx_PrintString("PRGM");
+			break;
+		case 1:
+			gfx_PrintString("AVAR");
+			break;
+		case 2:
+			gfx_PrintString("GRPP");
+			break;
+		case 3:
+			gfx_PrintString("GRPV");
+			break;
+	}
+	gfx_PrintString(": ");
+	if (appstate.maxvars > 0) {
+		i = appstate.varindex;
+		if (appstate.vartypeidx & 2) {	//Group variable, print group name first
+			printName((uint8_t*)fontvars.groupname[i]);
+			gfx_PrintString(" :: ");
+		}
+		printName((uint8_t*)fontvars.varname[i]);
+
+		// TODO: Print variable name here, once implemented
+		gfx_SetTextXY(DETAILS_COLSTART, SCREEN_TOP + (2*LINE_HEIGHT));
+		// TODO: Print something here. I don't know if I want to deal with 
+		// reaching into the font hook for metadata.
+		// NOTE: Slight out of order rendering to prevent a font count with no
+		// fonts available while reusing the same splitting logic.
+		gfx_SetTextXY(DETAILS_COLSTART, SCREEN_TOP + (0*LINE_HEIGHT));
+		gfx_PrintString("Fonts found: ");
+		gfx_PrintUInt(appstate.varindex+1, 3);
+		gfx_PrintChar('/');
+		gfx_PrintUInt(appstate.maxvars, 3);
+		gfx_SetTextXY(STATUS_COLSTART,SCREEN_TOP + (1*LINE_HEIGHT));
+		if (appstate.installed) {
+			oldcolor = gfx_SetTextFGColor(COLOR_GREENTEXT);
+			gfx_PrintString("INSTALLED");
+		} else {
+			oldcolor = gfx_SetTextFGColor(COLOR_REDTEXT);
+			gfx_PrintString("NOT INSTALLED");
+		}
+	} else {
+		gfx_PrintString("** No fonts found **");
+		gfx_SetTextXY(STATUS_COLSTART,SCREEN_TOP + (1*LINE_HEIGHT));
+		oldcolor = gfx_SetTextFGColor(COLOR_REDTEXT);
+		gfx_PrintString("NOT FOUND");
+	}
+	gfx_SetTextFGColor(oldcolor);
+
 }
 
-
-//We don't have newlines so we've got to do it via array of strings.
-//sarr is structured exactly like menus, except there are no decisions
-//and any key pressed will close the notice
-void alert(const char **sarr,uint8_t numstrings) {
+kb_key_t keyRead(void) {
 	kb_key_t k;
-	int width,xbase;
-	uint8_t height,ybase,cbase;
-	
-	width = getLongestLength(sarr,numstrings)+8;
-	height = (4+(numstrings-1)*12+16); //Border 4px, header 16px, others 10px
-	xbase = (LCD_WIDTH-width)/2;
-	ybase = (LCD_HEIGHT-height)/2;
-	cbase = 0x25; //A faded red, set to darkest.
-	cbase = 0x19; //A faded green, set to darkest.
-//	cbase = (2<<4) | (2<<2);  //Dark yellow?
-	
-	keywait();
-	do {
-		k = GetKbd();
-		drawMenuStrings(sarr,numstrings,xbase,ybase,width,height,0,cbase);
-		//Copy results to screen
-		gfx_BlitRectangle(gfx_buffer,xbase,ybase,width,height);
-	} while (!k);
-	gfx_SetTextFGColor(0);
+	kb_Scan();
+	k = kb_Data[7] | kb_Data[1];	//Merge groups: dpad & 2nd/mode/del/yequ
+	return k;
 }
 
-void drawMenuStrings(const char **sarr, uint8_t numstrings,int xbase, uint8_t ybase, int width, uint8_t height, uint8_t index, uint8_t cbase) {
-	uint8_t i,ytemp;
-	int xtemp;
-	
-	//Draw the menubox
-	menuRectangle(xbase,ybase,width,height,cbase);
-	//Draw header area
-	gfx_SetColor(cbase|COLOR_LIGHTER);
-	gfx_HorizLine(xbase+6,ybase+15,width-12);
-	gfx_SetTextFGColor(0x3C|COLOR_LIGHT);    //Picked using color contrast tool
-	gfx_PrintStringXY(sarr[0],xbase+4,ybase+5);  //Header
-	//Draw menu options
-	xtemp = xbase+2;
-	ytemp = ybase+18;
-	gfx_SetTextFGColor(COLOR_WHITE|COLOR_LIGHT);
-	gfx_SetColor(cbase|COLOR_DARK);
-	for (i=1;i<numstrings;i++) {
-		if (i==index) gfx_FillRectangle_NoClip(xtemp,ytemp,width-4,10);
-		gfx_PrintStringXY(sarr[i],xtemp+(width-gfx_GetStringWidth(sarr[i]))/2-2,ytemp+1);
-		ytemp += 12;
+void updateState(void) {
+	// Updates state in response to change in variable type or index.
+	appstate.varindex = varindexbyfiletype[appstate.vartypeidx];
+	appstate.maxvars = fontvars.varcount;
+}
+
+void printName(uint8_t *nameptr) {
+	uint8_t *s = nameptr;
+	uint8_t nlen = *s;
+	while (nlen) {
+		s++;
+		gfx_PrintChar(*s);
+		nlen--;
 	}
 }
-
-int getLongestLength(const char **sarr, uint8_t numstrings) {
-	int largest_width,current_width;
-	largest_width = 0;
-	do {
-		--numstrings;
-		if ((current_width = gfx_GetStringWidth(sarr[numstrings])) > largest_width)
-			largest_width = current_width;
-	} while (numstrings);
-	return largest_width;
-}
-
-void menuRectangle(int x,uint8_t y,int w, uint8_t h, uint8_t basecolor) {
-	gfx_SetColor(basecolor|COLOR_LIGHTER);
-	gfx_Rectangle_NoClip(x,y,w,h);
-	gfx_SetColor(basecolor|COLOR_DARK);
-	gfx_Rectangle_NoClip(++x,++y,w-=2,h-=2);
-	gfx_SetColor(((basecolor>>1)&0x15)|COLOR_DARK); //darkshift, lighter
-	gfx_FillRectangle(++x,++y,w-=2,h-=2);
-}
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-
-

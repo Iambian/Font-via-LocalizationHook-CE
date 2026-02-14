@@ -129,11 +129,8 @@ Remaining TODO List
 Licenses
 --------
 
-For my stuff: Do what you want.
-
-For the other stuff: This time, it's Courier New that's being used. Can't find
-any copyright information on them but the internet suggests that IBM let
-this one go.
+* **My stuff**: See `LICENSE`
+* **Other stuff**: Example material used without permission.
 
 Credits
 -------
