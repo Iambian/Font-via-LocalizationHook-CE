@@ -24,6 +24,17 @@ _ClrLocalizeHook  EQU $0213F4 ;''
 _SetFontHook      EQU $021454 ;''
 _ClrFontHook      EQU $021458 ;''
 
+fontHookPtr		EQU 0D025EDh
+parserHookPtr	EQU 0D025F9h
+catalog1HookPtr	EQU 0D025FFh
+helpHookPtr		EQU 0D02602h
+menuHookPtr		EQU 0D02608h
+catalog2HookPtr	EQU 0D0260Bh
+tokenHookPtr	EQU 0D0260Eh
+localizeHookPtr	EQU 0D02611h
+
+
+
 prevDData         EQU $D005A1 ;''
 lFont_record      EQU $D005A4 ;''
 sFont_record      EQU $D005C5 ;''

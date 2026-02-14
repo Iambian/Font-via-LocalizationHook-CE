@@ -19,6 +19,15 @@ _ClrLocalizeHook  EQU $0213F4 ;''
 _SetFontHook      EQU $021454 ;''
 _ClrFontHook      EQU $021458 ;''
 
+fontHookPtr		EQU 0D025EDh
+parserHookPtr	EQU 0D025F9h
+catalog1HookPtr	EQU 0D025FFh
+helpHookPtr		EQU 0D02602h
+menuHookPtr		EQU 0D02608h
+catalog2HookPtr	EQU 0D0260Bh
+tokenHookPtr	EQU 0D0260Eh
+localizeHookPtr	EQU 0D02611h
+
 prevDData         EQU $D005A1 ;''
 lFont_record      EQU $D005A4 ;''
 sFont_record      EQU $D005C5 ;''
@@ -74,6 +83,7 @@ fontvars equ 9
 
 public _gatherFiles
 require strcmp
+require _fontpackHeader
 _gatherFiles:
     push ix     ;MUST PRESERVE THIS
     ;---
@@ -180,7 +190,7 @@ gatherFiles_traverseAndUpdateFontvars:
     ld  (gatherFiles_traverseAndUpdateFontvars_varDataPtrSMC),hl
     push hl
         push de
-            ld  de,gatherFiles_fontHeader
+            ld  de,_fontpackHeader
             call strcmp
         pop de
     pop hl
@@ -246,10 +256,6 @@ gatherFiles_retrieveFiletype_notAppVar:
     ld  a,ProtProgObj
     ret
 
-gatherFiles_fontHeader:
-db $EF,$7B,$18,$0C,"FNTPK",0
-
-
 ;-----------------------------------------------------------------------------
 ;Internal routine. Do not expose to the C runtime.
 ;Input: IX = Pointer in VAT
@@ -296,8 +302,105 @@ strcmp_notEqual:
     scf
     ret
 
+;-----------------------------------------------------------------------------
+;Do not expose to the C runtime. Internal routine.
+;In: HL=pointer to start of variable data for a font variable.
+;Out: HL=pointer to start of hook section for that variable.
+;     Carry set if not actually a font. In that case, HL is invalid.
+
+section .text
+private getHookLocation
+getHookLocation:
+    ld  de,_fontpackHeader
+    call strcmp ;Uses this to advance HL to the offset block.
+    ret c
+    ; HL now points to "distance to data section from here"
+    inc hl
+    inc hl
+    inc hl
+    ; HL now points to "distance to hook section from here"
+    ld  bc,(hl)
+    add hl,bc
+    or  a,a
+    ret
 
 
 
+;-----------------------------------------------------------------------------
+;bool isInstalled(uint8_t *startOfVarData);
+;Returns true if the font hook is installed, false if not. 
+;Does this by finding the start of the hook code and matching it against
+;the address at localizeHookPtr.
+;The internal version of this function also uses carry set to indicate that
+;the variable is not a font variable. Also returns hook location in DE.
+
+section .text
+public _isInstalled
+private isInstalled_internal
+require _fontpackHeader
+require strcmp
+
+_isInstalled:
+    or  a,a
+    sbc hl,hl
+    add hl,sp
+    push hl
+    pop iy
+isInstalled_internal:
+    ld  hl,(iy+3)   ;pointer to start of variable data is passed on stack.
+    call getHookLocation
+    ex  de,hl   ;DE=pointer to start of hook section
+    ld  a,0
+    ret c
+    xor a,a
+    ld  iy,flags
+    bit 1,(iy+$35)  ;Check flags to see if hook is installed.
+    ret z           ;If not installed, return false.
+    ld  hl,(localizeHookPtr)
+    sbc hl,de
+    ret nz  ;Returns false for this hook not installed.
+    inc a
+    ret     ;Returns true for this hook installed.
 
 
+;-----------------------------------------------------------------------------
+;void installHook2(uint8_t *startOfVarData);
+;Installs the font hook for the variable whose data starts at the given pointer.
+;If a problem happens, the hook is not installed.
+
+section .text
+public _installHook2
+require isInstalled_internal
+_installHook2:
+    or  a,a
+    sbc hl,hl
+    add hl,sp
+    push hl
+    pop iy
+    call isInstalled_internal
+    ret c   ;If not a font variable, do not install.
+    or  a,a
+    ret nz  ;If already installed, do not install again.
+    ex  de,hl   ;HL=start of hook section
+    jp  _SetLocalizeHook
+
+;-----------------------------------------------------------------------------
+;void uninstallHook2(void);
+;Uninstalls the font hook, if it exists.
+
+section .text
+public _uninstallHook2
+_uninstallHook2:
+    ld  iy,flags
+    bit 1,(iy+$35)  ;Check flags to see if hook is installed.
+    ret z           ;If not installed, nothing to uninstall.
+    jp  _ClrLocalizeHook
+
+
+;-----------------------------------------------------------------------------
+; 
+
+section .text
+public _fontpackHeader
+_fontpackHeader:
+db $EF,$7B,$18,$0C,"FNTPK",0

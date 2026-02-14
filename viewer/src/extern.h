@@ -10,30 +10,22 @@ typedef struct {
 } fontvar_t;
 
 typedef struct {
-	bool installed;
-	uint8_t vartypeidx;
-	uint8_t fonttype;
-	bool textdisptype;
-	uint8_t varindex;
-	uint8_t maxvars;
+	bool installed;		//Whether the hook is currently installed. Should be true if any fonts are found, but this is technically separate.
+	uint8_t vartypeidx;	//Index into filetypes array for the current variable type. Should be 0-3, but no bounds checking is done.
+	uint8_t fonttype;	//0 for large, 1 for small. Could be extended if more font types are added, but that seems unlikely.
+	bool textdisptype;	//0 for normal text display, 1 for sentence case. Could be extended if more display types are added, but that also seems unlikely.
+	uint8_t varindex;	//Index into the current variable type's variables for the currently selected variable. Should be 0-(varcount-1), but no bounds checking is done.
+	uint8_t maxvars;	//Number of variables found for the current variable type. Should be <=255 due to varcount being a uint8_t, but no bounds checking is done. If 0, varindex is invalid and should not be used to index into fontvars.
 } state_t;
 
 extern void		DrawLFontExample( void *data );	/*Externally defined */
 extern void		DrawSFontExample( void *data );	/*Externally defined */
 
-/* Deprecate these functions */
-extern void 	fn_Setup_Palette(void);
-extern uint8_t 	InitVarSearch( uint8_t vartype);
-extern uint8_t 	VarSearchNext(void);
-extern uint8_t 	VarSearchPrev(void);
-extern void*	GetFontStruct(void);
-extern kb_key_t GetKbd(void);
-extern void		PrintOp1(void);
-extern void		PrintOp4(void);
-extern kb_key_t	GetKbd(void);
-extern void		InstallHook(void);
-extern uint8_t	UninstallHook(void);
-
 /* New functions here */
 extern void gatherFiles(uint8_t vartypeidx, fontvar_t *fontvars);
+extern bool isInstalled(uint8_t *startOfVarData);
+extern void installHook2(uint8_t *startOfVarData);
+extern void uninstallHook2(void);
+
+
 

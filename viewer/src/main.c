@@ -85,24 +85,28 @@ int main(void) {
 	
 	gfx_SetDrawBuffer();
 	
-	// Initial gather of files to populate the font count and other details before initial draw
+	// Initial gather of files to populate the font count and other details
+	// before initial draw, then configure variables to force that draw.
 	gatherFiles(appstate.vartypeidx, &fontvars);
 	updateState();
-	statechanged = true;	//Force initial draw
-	k = kb_2nd;		//Primes key variable for initial display and to help force initial draw without needing to press a button
+	statechanged = true;
+	k = kb_2nd;
+
 	do {
 		if (k) {
-			while (keyRead());	//Wait for all keys to be released before allowing another input to prevent multiple inputs from a single key press
-
 			/* Perform keyboard checking here */
 			if (k & kb_2nd) {
 				appstate.textdisptype = !appstate.textdisptype;
 				statechanged = true;
 			}
 
+			if (k & (kb_Left | kb_Right | kb_Up | kb_Down)) {
+				// If changing variable, save current index for this variable type before changing
+				varindexbyfiletype[appstate.vartypeidx] = appstate.varindex;
+			}
+
 			if (k & kb_Up) {
 				if (appstate.vartypeidx > 0) {
-					varindexbyfiletype[appstate.vartypeidx] = appstate.varindex;	//Save current index for this variable type before changing
 					appstate.vartypeidx--;
 					//vartype = filetypes[appstate.vartypeidx];
 					gatherFiles(appstate.vartypeidx, &fontvars);
@@ -113,7 +117,6 @@ int main(void) {
 
 			if (k & kb_Down) {
 				if (appstate.vartypeidx < (LEN(filetypes)-1)) {
-					varindexbyfiletype[appstate.vartypeidx] = appstate.varindex;	//Save current index for this variable type before changing
 					appstate.vartypeidx++;
 					//vartype = filetypes[appstate.vartypeidx];
 					gatherFiles(appstate.vartypeidx, &fontvars);
@@ -124,16 +127,34 @@ int main(void) {
 
 			if (k & kb_Left) {
 				if (appstate.varindex > 0) {
-					appstate.varindex--;
+					varindexbyfiletype[appstate.vartypeidx]--;
+					updateState();
 					statechanged = true;
 				}
 			}
 
 			if (k & kb_Right) {
 				if (appstate.varindex < (appstate.maxvars-1)) {
-					appstate.varindex++;
+					varindexbyfiletype[appstate.vartypeidx]++;
+					updateState();
 					statechanged = true;
 				}
+			}
+
+			if (k & kb_Yequ) {
+				appstate.fonttype = !appstate.fonttype;
+				statechanged = true;
+			}
+
+			if (k & kb_Del) {
+				if (appstate.installed) {
+					uninstallHook2();
+					appstate.installed = false;
+				} else {
+					installHook2((uint8_t*)fontvars.vardata[appstate.varindex]);
+					appstate.installed = true;
+				}
+				statechanged = true;
 			}
 
 			/* Draw screen if state changed */
@@ -142,6 +163,8 @@ int main(void) {
 				gfx_SwapDraw();
 				statechanged = false;
 			}
+			// Should read "keyWait" but I didn't want to add another function.
+			while (keyRead());
 		}
 		k = keyRead();
 	} while (k!=kb_Mode);
@@ -202,8 +225,9 @@ void drawBuffer(void) {
 
 		// TODO: Print variable name here, once implemented
 		gfx_SetTextXY(DETAILS_COLSTART, SCREEN_TOP + (2*LINE_HEIGHT));
-		// TODO: Print something here. I don't know if I want to deal with 
-		// reaching into the font hook for metadata.
+		// NOTE: Debug printing here.
+		gfx_PrintString("Var data ptr: ");
+		gfx_PrintUInt((uintptr_t)fontvars.vardata[appstate.varindex], 8);
 		// NOTE: Slight out of order rendering to prevent a font count with no
 		// fonts available while reusing the same splitting logic.
 		gfx_SetTextXY(DETAILS_COLSTART, SCREEN_TOP + (0*LINE_HEIGHT));
@@ -240,6 +264,7 @@ void updateState(void) {
 	// Updates state in response to change in variable type or index.
 	appstate.varindex = varindexbyfiletype[appstate.vartypeidx];
 	appstate.maxvars = fontvars.varcount;
+	appstate.installed = isInstalled((uint8_t*)fontvars.vardata[appstate.varindex]);
 }
 
 void printName(uint8_t *nameptr) {
@@ -251,3 +276,5 @@ void printName(uint8_t *nameptr) {
 		nlen--;
 	}
 }
+
+

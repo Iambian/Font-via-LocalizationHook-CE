@@ -7,9 +7,9 @@ Section          Base   Top    High   Length
 .init.reruncheck D1A944 D1A944             0h
 .init            D1A944 D1A970            2Ch
 .fini            D1A970 D1A9A4            34h
-.text            D1A9A4 D1AEE1           53Dh
-.data            D1AEE1 D1AEE7             6h
-.rodata          D1AEE7 D1AFA0            B9h
+.text            D1A9A4 D1AFF2           64Eh
+.data            D1AFF2 D1AFF8             6h
+.rodata          D1AFF8 D1B0C0            C8h
 .init_array      000000 000000             0h
 .ctors           000000 000000             0h
 .dtors           000000 000000             0h
@@ -38,10 +38,10 @@ __setflag                 = 000218
 __ultof                   = 000280
 _os_DisableHomeTextBuffer = D1A9E2
 _os_EnableHomeTextBuffer  = D1A9F4
-.missingappvar            = D1AEE7
-.libloadname              = D1AEEC
+.missingappvar            = D1AFF8
+.libloadname              = D1AFFD
 .libloadnamelen           = 000007
-.webaddress               = D1AEF4
+.webaddress               = D1B005
 __start                   = D1A944
 ___exithl                 = D1A970
 skip._exit                = D1A970
@@ -50,33 +50,40 @@ skip._abort               = D1A970
 _exit.sp                  = D1A971
 _exit.flash_wait_states   = D1A97B
 _main                     = D1AA06
-_updateState              = D1AB40
-_keyRead                  = D1AB5C
-_drawBuffer               = D1AB71
-_printName                = D1AD80
-_appstate                 = D1AEE1
+_updateState              = D1ABA0
+_drawBuffer               = D1ABE1
+_keyRead                  = D1AE22
+_printName                = D1AE37
+_appstate                 = D1AFF2
 _fontvars                 = D052C6
 _varindexbyfiletype       = D05BBE
-_.str                     = D1AF09
-_.str.1                   = D1AF19
-_.str.2                   = D1AF20
-_.str.3                   = D1AF27
-_.str.4                   = D1AF2D
-_.str.5                   = D1AF33
-_.str.6                   = D1AF38
-_.str.7                   = D1AF3D
-_.str.8                   = D1AF42
-_.str.9                   = D1AF47
-_.str.10                  = D1AF4A
-_.str.11                  = D1AF4F
-_.str.12                  = D1AF5D
-_.str.13                  = D1AF67
-_.str.14                  = D1AF75
-_.str.15                  = D1AF8A
-_switch.table.drawBuffer  = D1AF94
-_gatherFiles              = D1ADAF
-traverseVat               = D1AEBB
-strcmp                    = D1AED5
+_.str                     = D1B01A
+_.str.1                   = D1B02A
+_.str.2                   = D1B031
+_.str.3                   = D1B038
+_.str.4                   = D1B03E
+_.str.5                   = D1B044
+_.str.6                   = D1B049
+_.str.7                   = D1B04E
+_.str.8                   = D1B053
+_.str.9                   = D1B058
+_.str.10                  = D1B05B
+_.str.11                  = D1B060
+_.str.12                  = D1B06F
+_.str.13                  = D1B07D
+_.str.14                  = D1B087
+_.str.15                  = D1B095
+_.str.16                  = D1B0AA
+_switch.table.drawBuffer  = D1B0B4
+_gatherFiles              = D1AE66
+traverseVat               = D1AF68
+strcmp                    = D1AF82
+getHookLocation           = D1AF8E
+_isInstalled              = D1AF9F
+isInstalled_internal      = D1AFA6
+_installHook2             = D1AFC5
+_uninstallHook2           = D1AFDA
+_fontpackHeader           = D1AFE8
 lib.LibLoad               = D1A8F3
 _#gfx_Begin               = D1A906
 _#gfx_End                 = D1A90A
