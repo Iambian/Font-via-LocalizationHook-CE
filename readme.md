@@ -110,7 +110,8 @@ TODO
 ----
 
 * Refine vertical positioning of individual converted characters.
-* Stretch goal: Add full editor UI to dispense with all that testing and guessing.
+* Stretch goal: Add full editor UI to dispense with all that
+  testing and guessing.
 
 
 Licenses

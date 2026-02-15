@@ -486,13 +486,10 @@ _drawGlyph:
             call _SetLocalizeHook ;temporarily install this hook. _LoadPattern uses this.
         pop ix
         ld  a,(ix+fonttype) ;0=large,1=small
+        ld  c,4     ;bit 2 is set here. Use this as our primary mask
         sub a,1     ;carry if large
         sbc a,a     ;$FF if large, 0 if small.
-        and a,00000100b   ;isolate new fracDrawLFont bit.
-        ld  b,a
-        cpl
-        and a,(iy+$32)  ;clear out our target bit
-        or  a,b         ;set it to the new value
+        and a,c     ;isolate new fracDrawLFont bit.
         ld  (iy+$32),a
         ld  a,(ix+glyphindex)
         call _LoadPattern   ;Returns HL = target location (width-prefix)
