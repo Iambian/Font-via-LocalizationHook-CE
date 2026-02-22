@@ -3,7 +3,7 @@
 ;This provides something for the font previewer to latch onto
 ;when searching the filesystem for fonts to preview/load
 
-#include "src/ti84pce.inc"
+#include "../include/ti84pce.inc"
 #ifdef USING_LOADER
 .org userMem-2
 #endif
