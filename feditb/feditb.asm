@@ -80,7 +80,8 @@ fontFileSize = var_SP+3        ;3b, font file size.
 glyphID      = fontFileSize+3  ;1b, glyph ID. 0-255. Valid values: [1-249]
 glyphIsSmall = glyphID+1       ;2b, glyph size flag. 0=large, 1=small.
 .assert(glyphIsSmall == (glyphID+1), "glyphIsSmall must be immediately after glyphID due to combined variable writes.")
-glyphLUTPtr  = glyphIsSmall+2  ;3b, Pointer to glyph LUT in file.
+fontFilePtr  = glyphIsSmall+2  ;3b, Pointer to start of font file in RAM.
+glyphLUTPtr  = fontFilePtr+3   ;3b, Pointer to glyph LUT in file.
 largeFontPtr = glyphLUTPtr+3   ;3b, Pointer to large font data table in file.
 .assert(largeFontPtr >= (glyphIsSmall+2), "largeFontPtr must be at least 2 bytes after glyphIsSmall to avoid overlap.")
 largeFontSize= largeFontPtr+3  ;3b, Size of large font data table in file.
@@ -237,12 +238,15 @@ _:  ld  (de),a   ;Set all glyph LUT entries to unmapped.
     jr  main_writeMode  ;Retry lookup to pull down pointers.
 main_writeMode_fileFound:
     ;OK. We now have a file, regardless of whether nor not it existed.
+    ld  de,(fontFilePtr)
+    call _ChkInRam
+    jp  nz,err_FileArchived   ;Font file must be in RAM to write to these.
     call populateGlyphTables  ;populates glyphTable, glyphDataL, and glyphDataS.
     ; Verify that the matrix exists and they are the right size.
     call findMatrix
     jp  c,err_MatrixNotFound
     call _ChkInRam  ;in: DE=fileaddr, out: Z=RAM, NZ=Archive. Destroys: None.
-    jp  nz,err_FileArchived
+    jp  nz,err_FileArchived ;Matrix must be in RAM. What kind of monster archives this, anyhow?
     ld  a,(glyphIsSmall)
     or  a,a
     jr  nz,+_   ;if small, jump to small matrix size check
@@ -318,7 +322,7 @@ _:      push de
             inc a       ;otherwise, we adjust second byte to be in 1-8 range.
             ld  b,a
             call readBitsFromMatrix
-            ld  (ix+1),c
+            ld  (ix+0),c
             inc ix
 _:      pop de
         dec d
@@ -330,19 +334,27 @@ main_writeMode_writeCollect:
     jr  nz,+_       ;Skip if found since existing data won't cause a RAM delta.
     ; If it wasn't mapped, verify that the new glyph data will fit, then insert
     ; the needed memory into the file. The file will be overwritten in-place.
-    ld  hl,(fontFileSize)
-    ld  bc,SIZEOF_LARGE_GLYPH+SIZEOF_SMALL_GLYPH
-    push bc
-        add hl,bc
-        call _EnoughMem
+    ld  hl,SIZEOF_LARGE_GLYPH+SIZEOF_SMALL_GLYPH
+    push hl
+        call _EnoughMem ;Verify that we have enough memory to insert new data.
         jp  c,err_OOM_OnFontCreate
     pop hl
     ld  de,(largeFontPtr)
-    call _InsertMem  ;in: HL=size, DE=insertion point. Out: DE=intact.
+    push hl
+        call _InsertMem  ;in: HL=size, DE=insertion point. Out: DE=intact.
+    pop de
+    ld  ix,(fontFilePtr)
+    or  a,a
+    sbc hl,hl   ;zeroes out HLU, since size is uint16_t
+    ld  L,(ix+0)
+    ld  H,(ix+1)
+    add hl,de
+    ld (ix+0),L
+    ld (ix+1),H   ;Update file pointer to account for new data.
     ld  hl,(smallFontPtr)
     ld  bc,SIZEOF_LARGE_GLYPH
     add hl,bc
-    ld  (smallFontPtr),bc   ;move small font pointer up to account for new glyph data.
+    ld  (smallFontPtr),hl   ;move small font pointer up to account for new glyph data.
 _:  ;Perform compacting operation.
     ;Steps to operation. Iterating over internal glyph table.
     ;init:  curglyphcount = 0, codepoint = 1
@@ -364,15 +376,15 @@ _:  ;Perform compacting operation.
         ld  ix,glyphTable       ;pointer to internal LUT
         ld  iy,(glyphLUTPtr)    ;file glyph LUT pointer
 main_writeMode_writeToFile_loop:
-        ld  a,(ix)      ;Check if internal codepoint is mapped.
         inc ix
+        ld  a,(ix)      ;Check if internal codepoint is mapped.
         or  a,a         ;internal unmapped is byte $00.
         jr  z,main_writeMode_writeToFile_unmapped
         ;Mapped. Write to file.
         push bc         ;Preserve codepoint in BC for writing glyph data after LUT update.
             ;B=curglyphcount, C=codepoint
-            ld  (iy),b     ;Write glyph index to file LUT.
             inc iy
+            ld  (iy),b     ;Write glyph index to file LUT.
             ;Calculate LFont position in file.
             ld  d,SIZEOF_LARGE_GLYPH
             ld  e,b
@@ -402,14 +414,17 @@ main_writeMode_writeToFile_loop:
             ld  bc,SIZEOF_SMALL_GLYPH
             ldir
         pop bc          ;Restore codepoint to BC for next iteration and potential unmapped handling.
+        inc b           ;Advance glyph count.   
         jr  main_writeMode_writeToFile_collect
 main_writeMode_writeToFile_unmapped:
         dec a    ;$00->$FF
-        ld  (iy),a
         inc iy
+        ld  (iy),a
 main_writeMode_writeToFile_collect:
         inc c           ;Advance codepoint.
-        jr  main_writeMode_writeToFile_loop
+        jr  nz,main_writeMode_writeToFile_loop  ;End when C cycles back to 0
+        ld  hl,(glyphLUTPtr)
+        ld  (hl),b   ;Write final glyph count to file LUT size byte.
     pop iy
     ;File font data area overwritten. I think we're done.
     ret
@@ -614,9 +629,8 @@ findNameInString:
     call _FindSym   ;locate the string object
     jp  c,err_StringNotFound
     call _ChkInRam  ;in: DE=fileaddr, out: Z=RAM, NZ=Archive. Destroys: None.
-    jp  nz,err_FileArchived
-    mlt bc     ;Uses known side-effect on 84CE: Clears BCU. We don't actually care what's in BC.
-    ex  de,hl
+    jp  nz,err_FileArchived ;String must be in RAM. What kind of monster archives this, anyhow?
+    mlt bc      ;Uses known side-effect on 84CE: Clears BCU. We don't actually care what's in BC.
     ld  c,(hl)
     inc hl
     ld  b,(hl)
@@ -640,9 +654,15 @@ _:  ex  de,hl         ;DE=OP1, HL=start of string's name data
     call _ChkFindSym    ;This is the call needed to find programs and appvars.
     jp  c,err_FontNotFound
     call _ChkInRam  ;in: DE=fileaddr, out: Z=RAM, NZ=Archive. Destroys: None.
-    jp  nz,err_FileArchived
-    ex  de,hl
-    mlt de     ;Known side effect on 84CE: Clears DEU. What's actually in DE is irrelevant at this point.
+    ;NOTE: Removed in-RAM requirement for font files. It's up to the writer to reject these.
+    ex  de,hl   ;
+    jr  z,+_    ;skip if in RAM.
+    ld  de,9    ;3 bytes flash header + 6 bytes for appvar header before name
+    ld  e,(hl)
+    inc hl
+    add hl,de   ;Advance HL to file start
+_:  mlt de     ;Known side effect on 84CE: Clears DEU. What's actually in DE is irrelevant at this point.
+    ld  (fontFilePtr),hl   ;Pointer to start of font file in RAM.
     ld  e,(hl)
     inc hl
     ld  d,(hl)
@@ -710,6 +730,8 @@ copyNameToOP1_copy:
     ld  (de),a
     inc de
     djnz copyNameToOP1_loop
+    xor a,a
+    ld  (de),a      ;Null-terminate string copied to OP1.
     ret
 
 ;in: HL = size (L=columns (X), H=rows (Y))
@@ -731,7 +753,7 @@ createMatrix_loadData = $+1
     ret
 
 ;No inputs.
-;outputs: Carry set if not found, else DE=VATptr, HL=adrptr, A=type byte.
+;outputs: Carry set if not found, else HL=VATptr, DE=filePtr, A=type byte.
 findMatrix:
     ld  hl, matrixJ
     call _Mov9ToOP1
