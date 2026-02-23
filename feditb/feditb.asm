@@ -46,6 +46,7 @@
 #define ERR_MATRIX_CREATE_FAILED 10
 #define ERR_INVALID_STRING_INPUT 11
 #define ERR_MATRIX_NOT_FOUND 12
+#define ERR_FILE_ARCHIVED 13
 ;
 #define ERR_NOT_IMPLEMENTED_YET 99
 ;---
@@ -79,7 +80,8 @@ fontFileSize = var_SP+3        ;3b, font file size.
 glyphID      = fontFileSize+3  ;1b, glyph ID. 0-255. Valid values: [1-249]
 glyphIsSmall = glyphID+1       ;2b, glyph size flag. 0=large, 1=small.
 .assert(glyphIsSmall == (glyphID+1), "glyphIsSmall must be immediately after glyphID due to combined variable writes.")
-largeFontPtr = glyphIsSmall+2  ;3b, Pointer to large font data table in file.
+glyphLUTPtr  = glyphIsSmall+2  ;3b, Pointer to glyph LUT in file.
+largeFontPtr = glyphLUTPtr+3   ;3b, Pointer to large font data table in file.
 .assert(largeFontPtr >= (glyphIsSmall+2), "largeFontPtr must be at least 2 bytes after glyphIsSmall to avoid overlap.")
 largeFontSize= largeFontPtr+3  ;3b, Size of large font data table in file.
 smallFontPtr = largeFontSize+3 ;3b, Pointer to small font data table in file.
@@ -239,6 +241,8 @@ main_writeMode_fileFound:
     ; Verify that the matrix exists and they are the right size.
     call findMatrix
     jp  c,err_MatrixNotFound
+    call _ChkInRam  ;in: DE=fileaddr, out: Z=RAM, NZ=Archive. Destroys: None.
+    jp  nz,err_FileArchived
     ld  a,(glyphIsSmall)
     or  a,a
     jr  nz,+_   ;if small, jump to small matrix size check
@@ -270,92 +274,145 @@ _:  ;Matrix exists and is the right size. We can now prep reading the matrix to 
         push hl
         pop ix
     pop hl
+    push af     ;save code point state at since table was (potentially) modified.
 ;Register state:
 ;HL = pointer to matrix data
 ;IX = glyph data pointer
 ;C = codepoint
 ;B = glyph index (if mapped, B == C, else B == 0)
 ;E = width, D = height
-    jr  c,main_writeMode_writeSmallGlyph
-_:  push de
-        ld  b,5
-        call readBitsFromMatrix
-        ld  (ix+0),c
-        ld  b,7
-        call readBitsFromMatrix
-        ld  (ix+1),c
-        lea ix,ix+2
-    pop de
-    dec d
-    jr  nz,-_
-    jr  main_writeMode_writeCollect
+        jr  c,main_writeMode_writeSmallGlyph
+_:      push de
+            ld  b,5
+            call readBitsFromMatrix
+            ld  (ix+0),c
+            ld  b,7
+            call readBitsFromMatrix
+            ld  (ix+1),c
+            lea ix,ix+2
+        pop de
+        dec d
+        jr  nz,-_
+        jr  main_writeMode_writeCollect
 main_writeMode_writeSmallGlyph:
-    dec hl
-    dec hl
-    ld  e,(hl)  ;we need to re-fetch width. The version we have in E might not
-    inc hl      ;be accurate whether or not the glyph was mapped. Especially if not.
-    inc hl
-    ld  (ix-1),e  ;Let's update width in the glyph data table now.
-_:  push de
-        ld  a,e
-        cp  a,9
-        jr  c,$+4   ;Carry means width <= 8. Skip clamping.
-        ld  e,8     ;Clamp to 8 for this byte, since a byte only has 8 bits.
-        ld  b,e
-        call readBitsFromMatrix
-        ld  (ix+0),c
-        inc ix
-    pop de
-    push de
-        ld  a,e
-        sub a,9
-        jr  c,+_    ;if carry, width is less than 8 so we skip writing the second byte.
-        inc a       ;otherwise, we adjust second byte to be in 1-8 range.
-        ld  b,a
-        call readBitsFromMatrix
-        ld  (ix+1),c
-        inc ix
-_:  pop de
-    dec d
-    jr  nz,--_
+        dec hl
+        dec hl
+        ld  e,(hl)  ;we need to re-fetch width. The version we have in E might not
+        inc hl      ;be accurate whether or not the glyph was mapped. Especially if not.
+        inc hl
+        ld  (ix-1),e  ;Let's update width in the glyph data table now.
+_:      push de
+            ld  a,e
+            cp  a,9
+            jr  c,$+4   ;Carry means width <= 8. Skip clamping.
+            ld  e,8     ;Clamp to 8 for this byte, since a byte only has 8 bits.
+            ld  b,e
+            call readBitsFromMatrix
+            ld  (ix+0),c
+            inc ix
+        pop de
+        push de
+            ld  a,e
+            sub a,9
+            jr  c,+_    ;if carry, width is less than 8 so we skip writing the second byte.
+            inc a       ;otherwise, we adjust second byte to be in 1-8 range.
+            ld  b,a
+            call readBitsFromMatrix
+            ld  (ix+1),c
+            inc ix
+_:      pop de
+        dec d
+        jr  nz,--_
 main_writeMode_writeCollect:
-    ;TODO: Compact the data tables and update the glyph LUT to actual format
-    ;before doing the file i/o dance. By this time, there is guaranteed to be
-    ;a file to edit. There will either be no size delta, or an increase in
-    ;size equal to SIZEOF_LARGE_GLYPH+SIZEOF_SMALL_GLYPH since adding a new
-    ;codepoint automatically reserves space for both, regardless of whether or
-    ;not there's actually any data in them. This is a failing of the format,
-    ;but it preserves access speed.
-    call locateGlyphData    ;Z=notfound, NZ=found.
+    ;NOTE: The push/pop AF sequence preserves the Z/NZ state of the initial
+    ;glyph lookup, which indicates whether or not the glyph was previously mapped.
+    pop af
     jr  nz,+_       ;Skip if found since existing data won't cause a RAM delta.
-    ; If it wasn't mapped, we need to verify that reserving
-    ; space for the new glyph won't exhaust RAM.
+    ; If it wasn't mapped, verify that the new glyph data will fit, then insert
+    ; the needed memory into the file. The file will be overwritten in-place.
     ld  hl,(fontFileSize)
     ld  bc,SIZEOF_LARGE_GLYPH+SIZEOF_SMALL_GLYPH
+    push bc
+        add hl,bc
+        call _EnoughMem
+        jp  c,err_OOM_OnFontCreate
+    pop hl
+    ld  de,(largeFontPtr)
+    call _InsertMem  ;in: HL=size, DE=insertion point. Out: DE=intact.
+    ld  hl,(smallFontPtr)
+    ld  bc,SIZEOF_LARGE_GLYPH
     add hl,bc
-    call _EnoughMem
-    jp  c,err_OOM_OnFontCreate
-_:  ;Next step is to delete the file, then reconstruct it with the new data.
-    ;This is a safe-ish operation -- if there were any problems at this point,
-    ;the original file would have been lost anyway due to RAM corruption and
-    ;system crash. Using the Archive is too expensive for what we are doing.
-    ;It will be the user's responsibility to back up their files prior to
-    ;testing this utility.
-
-
-    ld  a,ERR_NOT_IMPLEMENTED_YET
-    jp  errorHandler
-    ;ret
-
-
-
-
-
-
-
-
-
-
+    ld  (smallFontPtr),bc   ;move small font pointer up to account for new glyph data.
+_:  ;Perform compacting operation.
+    ;Steps to operation. Iterating over internal glyph table.
+    ;init:  curglyphcount = 0, codepoint = 1
+    ;If internalLUT[codepoint] mapped:
+    ;   curglyphcount -> externalLUT[codepoint]
+    ;   internalLFontData[codepoint] -> externalLFontData[curglyphcount]
+    ;   internalSFontData[codepoint] -> externalSFontData[curglyphcount]
+    ;   curglyphcount++
+    ;else:
+    ;   externalLUT[codepoint] = $FF (unmapped)
+    ;end;
+    ;curglyphcount -> externalLUT[0]
+    ;
+    ;NOTE: Too many pointers.
+    ;
+    push iy
+        ld  b,0
+        ld  c,1
+        ld  ix,glyphTable       ;pointer to internal LUT
+        ld  iy,(glyphLUTPtr)    ;file glyph LUT pointer
+main_writeMode_writeToFile_loop:
+        ld  a,(ix)      ;Check if internal codepoint is mapped.
+        inc ix
+        or  a,a         ;internal unmapped is byte $00.
+        jr  z,main_writeMode_writeToFile_unmapped
+        ;Mapped. Write to file.
+        push bc         ;Preserve codepoint in BC for writing glyph data after LUT update.
+            ;B=curglyphcount, C=codepoint
+            ld  (iy),b     ;Write glyph index to file LUT.
+            inc iy
+            ;Calculate LFont position in file.
+            ld  d,SIZEOF_LARGE_GLYPH
+            ld  e,b
+            mlt de
+            ld  hl,(largeFontPtr)
+            add hl,de
+            ex  de,hl       ;DE now write pointer
+            ld  b,SIZEOF_LARGE_GLYPH
+            mlt bc
+            ld  hl,glyphDataL
+            add hl,bc       ;HL now read pointer
+            ld  bc,SIZEOF_LARGE_GLYPH
+            ldir
+        pop bc
+        push bc
+            ;Calculate SFont position in file.
+            ld  d,SIZEOF_SMALL_GLYPH
+            ld  e,b
+            mlt de
+            ld  hl,(smallFontPtr)
+            add hl,de
+            ex  de,hl       ;DE now write pointer
+            ld  b,SIZEOF_SMALL_GLYPH
+            mlt bc
+            ld  hl,glyphDataS
+            add hl,bc       ;HL now read pointer
+            ld  bc,SIZEOF_SMALL_GLYPH
+            ldir
+        pop bc          ;Restore codepoint to BC for next iteration and potential unmapped handling.
+        jr  main_writeMode_writeToFile_collect
+main_writeMode_writeToFile_unmapped:
+        dec a    ;$00->$FF
+        ld  (iy),a
+        inc iy
+main_writeMode_writeToFile_collect:
+        inc c           ;Advance codepoint.
+        jr  main_writeMode_writeToFile_loop
+    pop iy
+    ;File font data area overwritten. I think we're done.
+    ret
 
 
 ;in: A=glyph data byte, B=bits to write (RLCA), DE=pointer to matrix data
@@ -451,36 +508,6 @@ _:  pop bc
 
 
 
-;TODO: Fix some problems identified by a code reviewer. Here are the comments:
-;
-;5. Small glyph data offsets miscalculated in populateGlyphTables — 
-;feditb.asm:208-225
-;After the large glyph LDIR, the code reuses the post-LDIR pointers to 
-;reach the small glyph in both the file and the local table:
-;
-;File offset: After copying large glyph at index K, 
-;HL = largeFontPtr + (K+1)*28. Adding largeFontSize = (N-1)*28 gives 
-;largeFontPtr + (K+N)*28. The correct address is largeFontPtr + N*28 + K*25. 
-;The error is K*3 bytes (using stride 28 instead of 25).
-;
-;Local table offset: The large glyph destination was at 
-;glyphDataL + codepoint*28. After LDIR (+28) and adding 
-;glyphDataS - glyphDataL (= 255*28), the result is 
-;glyphDataS + codepoint*28 + 28. The correct address is 
-;glyphDataS + codepoint*25. The stride mismatch (28 vs 25) 
-;and extra +28 corrupt the destination.
-;
-;In contrast, locateGlyphData correctly uses SIZEOF_SMALL_GLYPH (25) 
-;as the stride.
-
-
-
-
-
-
-
-
-
 ;in: HL=pointer to font file address section
 ;out: glyphTable now populated with adjusted mappings to glyph data (OffsetLSB==codepoint)
 ;glyphDataL and glyphDataS now populated with large and small glyph data, respectively.
@@ -501,6 +528,7 @@ populateGlyphTables:
     pop hl
     ld  de,(hl)
     add hl,de   ;HL now points to file's glyph LUT
+    ld  (glyphLUTPtr),hl
     ld  a,(hl)  ;Preload number of mapped glyphs.
     ;NOTE: The math stops making sense if there are 0 glyphs, but as long as the
     ;table itself shows that nothing is mapped, then it shouldn't be a problem.
@@ -585,6 +613,8 @@ findNameInString:
     call _Mov9ToOP1
     call _FindSym   ;locate the string object
     jp  c,err_StringNotFound
+    call _ChkInRam  ;in: DE=fileaddr, out: Z=RAM, NZ=Archive. Destroys: None.
+    jp  nz,err_FileArchived
     mlt bc     ;Uses known side-effect on 84CE: Clears BCU. We don't actually care what's in BC.
     ex  de,hl
     ld  c,(hl)
@@ -609,6 +639,8 @@ _:  ex  de,hl         ;DE=OP1, HL=start of string's name data
     call copyNameToOP1  ;not a simple ldir. Must account for lowercase tokens.
     call _ChkFindSym    ;This is the call needed to find programs and appvars.
     jp  c,err_FontNotFound
+    call _ChkInRam  ;in: DE=fileaddr, out: Z=RAM, NZ=Archive. Destroys: None.
+    jp  nz,err_FileArchived
     ex  de,hl
     mlt de     ;Known side effect on 84CE: Clears DEU. What's actually in DE is irrelevant at this point.
     ld  e,(hl)
@@ -747,6 +779,9 @@ err_InvalidStringInput:
     jr  errorHandler
 err_MatrixNotFound:
     ld  a,ERR_MATRIX_NOT_FOUND
+    jr  errorHandler
+err_FileArchived:
+    ld  a,ERR_FILE_ARCHIVED
     jr  errorHandler
 
 ;This error system is not to be confused with the TI-OS's error handlers.
