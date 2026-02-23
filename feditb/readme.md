@@ -30,7 +30,7 @@ FEDITB provides a simple interface for BASIC programs to edit font glyphs stored
 ### Matrix Dimensions
 
 - **Large font glyphs**: 12×14 matrix (12 columns, 14 rows)
-- **Small font glyphs**: Variable width×12 matrix (width varies by glyph, 12 rows)
+- **Small font glyphs**: 1–16 columns × 12 rows (width varies by glyph)
 
 ### Error Codes
 
@@ -48,6 +48,8 @@ FEDITB provides a simple interface for BASIC programs to edit font glyphs stored
 | 9 | String not found |
 | 10 | Matrix create failed |
 | 11 | Invalid string input |
+| 12 | Matrix not found |
+| 13 | File archived |
 
 ### Example Usage
 
@@ -64,10 +66,24 @@ FEDITB provides a simple interface for BASIC programs to edit font glyphs stored
 :Asm(prgmFEDITB
 :# [J] now contains the small glyph data
 
-:# Write mode (NOT YET IMPLEMENTED)
-:# 1065→Ans
-:# Asm(prgmFEDITB
+:# Write large font glyph 65 from [J]
+:"FONTNAME"→Str0
+:1065→Ans
+:Asm(prgmFEDITB
+
+:# Write small font glyph 65 from [J]
+:"FONTNAME"→Str0
+:1321→Ans
+:Asm(prgmFEDITB
 ```
+
+### Notes on Write Mode
+
+- The font file must be in RAM. Archived font files return error 13.
+- Matrix [J] must also be in RAM.
+- If the named font file does not exist, a new empty font file is created automatically.
+- For small glyphs, the width is taken from the matrix column count and stored in the glyph data.
+- Valid small glyph widths are 1–16 columns. Zero and values above 16 are rejected.
 
 ## Building
 
@@ -84,7 +100,7 @@ Run the build script:
 build.bat
 ```
 
-This will compile `main.asm` and generate `FEDITB.8xp`.
+This will compile `feditb.asm` and generate `FEDITB.8xp`.
 
 ## Installation
 
@@ -98,20 +114,15 @@ See [LICENSE](LICENSE) for full details.
 
 ## Current Status
 
-**⚠️ This is an incomplete draft.** The write mode functionality is not yet implemented. Only read mode is currently functional.
+Ready for initial testing. Both read and write modes are implemented.
 
 ### Working Features
-- Reading large and small font glyphs
-- Finding and validating font objects
-- Creating matrices with glyph data
-- Automatic font file creation (stub functionality)
-
-### Planned Features
-- Write mode for modifying font glyphs (in development)
-- Memory management for font file updates
-- Validation of write operations
-
-## Notes
-
-This utility is intended to be merged into the Font-Via-LocalizationHook-CE repository in the future.
+- Reading large and small font glyphs into matrix [J]
+- Writing large and small font glyphs from matrix [J]
+- Finding and validating font objects (programs and appvars)
+- Creating a new empty font file if the named file does not exist
+- Automatic glyph insertion and memory expansion for new glyphs
+- Compacting and writing back glyph tables to the font file
+- Matrix [J] creation with correct dimensions in read mode
+- Comprehensive error reporting
 
