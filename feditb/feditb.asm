@@ -612,6 +612,7 @@ findNameInString:
     call _ChkInRam  ;in: DE=fileaddr, out: Z=RAM, NZ=Archive. Destroys: None.
     jp  nz,err_FileArchived ;String must be in RAM. What kind of monster archives this, anyhow?
     mlt bc      ;Uses known side-effect on 84CE: Clears BCU. We don't actually care what's in BC.
+    ex  de,hl   ;after: HL=pointer to string data
     ld  c,(hl)
     inc hl
     ld  b,(hl)

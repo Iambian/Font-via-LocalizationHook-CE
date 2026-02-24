@@ -18,14 +18,15 @@ Disp "Exp: 7"
 "NOTFOUND"->Str0
 65
 Asm(prgmFEDITB
+Ans->E
 P+1->P
-If Ans=7
+If E=7
 Then
 Disp "T1: PASS"
 Else
 F+1->F
 Disp "T1: FAIL"
-Disp Ans
+Disp E
 End
 Pause 
 
@@ -41,14 +42,15 @@ Disp "Exp: 2"
 "OPENSANS"->Str0
 0
 Asm(prgmFEDITB
+Ans->E
 P+1->P
-If Ans=2
+If E=2
 Then
 Disp "T2: PASS"
 Else
 F+1->F
 Disp "T2: FAIL"
-Disp Ans
+Disp E
 End
 Pause 
 
@@ -68,14 +70,15 @@ Disp "Glyph 1, Exp: 3"
 "OPENSANS"->Str0
 1
 Asm(prgmFEDITB
+Ans->E
 P+1->P
-If Ans=3
+If E=3
 Then
 Disp "T3: PASS"
 Else
 F+1->F
 Disp "T3: FAIL"
-Disp Ans
+Disp E
 End
 Pause 
 
@@ -92,14 +95,15 @@ Disp "Glyph 65, Exp: 0"
 "OPENSANS"->Str0
 65
 Asm(prgmFEDITB
+Ans->E
 P+1->P
-If Ans=0
+If E=0
 Then
 Disp "T4: PASS"
 Else
 F+1->F
 Disp "T4: FAIL"
-Disp Ans
+Disp E
 End
 Pause 
 
@@ -112,7 +116,8 @@ ClrHome
 Disp "T5: LARGE DIMS CHK"
 Disp "Exp: 14 rows, 12 cols"
 P+1->P
-If dim([J])(1)=14 and dim([J])(2)=12
+dim([J])
+If Ans(1)=14 and Ans(2)=12
 Then
 Disp "T5: PASS"
 Else
@@ -155,14 +160,15 @@ Disp "Glyph 321, Exp: 0"
 "OPENSANS"->Str0
 321
 Asm(prgmFEDITB
+Ans->E
 P+1->P
-If Ans=0
+If E=0
 Then
 Disp "T7: PASS"
 Else
 F+1->F
 Disp "T7: FAIL"
-Disp Ans
+Disp E
 End
 Pause 
 
@@ -175,7 +181,8 @@ ClrHome
 Disp "T8: SMALL DIMS CHK"
 Disp "Exp: 12 rows, 1-16 cols"
 P+1->P
-If dim([J])(1)=12 and dim([J])(2)>=1 and dim([J])(2)<=16
+dim([J])
+If Ans(1)=12 and Ans(2)>=1 and Ans(2)<=16
 Then
 Disp "T8: PASS"
 Else
@@ -205,19 +212,20 @@ Else
 "OPENSANS"->Str0
 1065
 Asm(prgmFEDITB
+Ans->E
 P+1->P
-If Ans=0
+If E=0
 Then
 Disp "T9: PASS"
 Else
-If Ans=13
+If E=13
 Then
 Disp "T9: SKIP (ARCHIVD)"
 P-1->P
 Else
 F+1->F
 Disp "T9: FAIL"
-Disp Ans
+Disp E
 End
 End
 End
@@ -243,19 +251,20 @@ Else
 "OPENSANS"->Str0
 1321
 Asm(prgmFEDITB
+Ans->E
 P+1->P
-If Ans=0
+If E=0
 Then
 Disp "T10: PASS"
 Else
-If Ans=13
+If E=13
 Then
 Disp "T10:SKIP (ARCHIVD)"
 P-1->P
 Else
 F+1->F
 Disp "T10: FAIL"
-Disp Ans
+Disp E
 End
 End
 End
@@ -284,24 +293,26 @@ Else
 "TESTFNT"->Str0
 1065
 Asm(prgmFEDITB
-If Ans≠0
+Ans->E
+If E≠0
 Then
 F+1->F
 P+1->P
 Disp "T11:FAIL ON WRITE"
-Disp Ans
+Disp E
 Else
 "TESTFNT"->Str0
 65
 Asm(prgmFEDITB
+Ans->E
 P+1->P
-If Ans=0
+If E=0
 Then
 Disp "T11: PASS"
 Else
 F+1->F
 Disp "T11:FAIL ON READBK"
-Disp Ans
+Disp E
 End
 End
 End
@@ -318,7 +329,8 @@ ClrHome
 Disp "T12: READBK DIM CHK"
 Disp "Exp: 14 rows, 12 cols"
 P+1->P
-If dim([J])(1)=14 and dim([J])(2)=12
+dim([J])
+If Ans(1)=14 and Ans(2)=12
 Then
 Disp "T12: PASS"
 Else
