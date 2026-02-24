@@ -14,20 +14,6 @@
 ;Ans = 0 if successful, else error code, as (much further) below
 ;
 
-
-
-;TODO: PLAN AN INTERIM FORMAT FOR THE GLYPH TABLES. THE FORMAT REQUIRES
-;THAT UNUSED GLYPHS MAP TO 255 ($FF) BUT ALSO ASSUMES THAT THE STARTING GLYPH
-;IS CODEPOINT 1, BUT INDEX 0 (BEING THE FIRST MAPPED GLYPH IN THE DATA SECTION)
-;THIS IS AT ODDS WITH OUR INTERNAL FONT TABLE WHICH MAPS VIA MEMORY OFFSETS
-;SO ALL GLYPHS ARE TECHNICALLY MAPPED TO A GLYPH INDEX. THIS INTERIM FORMAT
-;THEN REQUIRES US TO SET THE UNUSED GLYPH INDEX TO $00 SINCE THIS IS AN INDEX
-;THAT WAS AND WILL NEVER BE USED.
-;YOU MUST MAKE A NOTE OF THE DIFFERNCE WITH THE INTERNAL FORMAT
-;AND WHEN WRITING THE FILE BACK, REVERSE THIS PROCESS TO COMPLY WITH THE
-;ORIGINAL FILE FORMAT. CODEPOINT 0 WAS NEVER MAPPED.
-;
-
 .assume adl=1
 #include "../include/ti84pce.inc"
 #include "../include/macros.inc"
@@ -74,7 +60,6 @@
 ;that. Those generated 5KB font files in comparison are pretty empty.
 ;Who would've thought?
 
-
 var_SP       = SAFERAM_START   ;3b, stores SP for quick exit on error.
 fontFileSize = var_SP+3        ;3b, font file size.
 glyphID      = fontFileSize+3  ;1b, glyph ID. 0-255. Valid values: [1-249]
@@ -98,10 +83,8 @@ reserved     = unusedEntries+256 ;0b. Used to avoid having to modify the stuff b
 ;`glyphTable+'A'` would give us the byte that maps the codepoint 'A' to a glyph
 ;index. As a result, codepoint 0 is unmappable. It shouldn't be a problem but
 ;the TI-OS actually maps it to something. 
-;TODO: Fix hook bug in mapper to allow codepoint 0 to cancel a remap operation.
 ;The value at that byte is the index of the glyph data for that codepoint.
 ;If the value is $FF, then that codepoint is not mapped to any glyph.
-;
 
 ;Indexed by GlyphID, value is index to glyph data. $FF=empty.
 ;The first byte is a size byte indicating how many glyphs are currently mapped.
@@ -202,8 +185,6 @@ _:  pop af
 
 ;---
 main_writeMode:
-;TODO: FINISH THIS SECTION
-    ;...
     ld  hl,main_writeMode_maybeCreateNewFile
     call errorOverride
     call findNameInString   ;If errors, try to handle them
@@ -871,9 +852,6 @@ fontPackHeaderEnd:
 ; After the stub, you must append the following data in this order:
 ; (1) Encodings, (2) Large glyph data, (3) Small glyph data.
 ;
-;
-
-
 
 fontObj_stubStart:
 .relocate(userMem-2)

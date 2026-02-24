@@ -1,0 +1,345 @@
+PROGRAM:TESTFED
+ClrHome
+0->P
+0->F
+Disp "=FEDITB TESTER="
+Disp "Font: OPENSANS"
+Disp "Glyph 65 = chr A"
+Pause 
+
+"====================
+"T1: Font not found
+"safest; no file needed
+"Exp: 7
+"====================
+ClrHome
+Disp "T1: FONT NOT FOUND"
+Disp "Exp: 7"
+"NOTFOUND"->Str0
+65
+Asm(prgmFEDITB
+P+1->P
+If Ans=7
+Then
+Disp "T1: PASS"
+Else
+F+1->F
+Disp "T1: FAIL"
+Disp Ans
+End
+Pause 
+
+"====================
+"T2: Invalid glyph ID 0
+"Glyph 0 invalid
+"by spec.
+"Exp: 2
+"====================
+ClrHome
+Disp "T2: INVALID GLYPH 0"
+Disp "Exp: 2"
+"OPENSANS"->Str0
+0
+Asm(prgmFEDITB
+P+1->P
+If Ans=2
+Then
+Disp "T2: PASS"
+Else
+F+1->F
+Disp "T2: FAIL"
+Disp Ans
+End
+Pause 
+
+"====================
+"T3: Glyph not mapped
+"in font
+"Glyph 1 not in
+"printable
+"font encoding
+"If PASS FAIL got=0
+"is mapped; use other code
+"Expects: 3
+"====================
+ClrHome
+Disp "T3: GLYPH NOT MAPD"
+Disp "Glyph 1, Exp: 3"
+"OPENSANS"->Str0
+1
+Asm(prgmFEDITB
+P+1->P
+If Ans=3
+Then
+Disp "T3: PASS"
+Else
+F+1->F
+Disp "T3: FAIL"
+Disp Ans
+End
+Pause 
+
+"====================
+"T4: Read large glyph
+"(sets up [J])
+"Glyph 65 ('A')
+"should exist
+"Exp: 0 then dims 14x12
+"====================
+ClrHome
+Disp "T4: READ LARGE A"
+Disp "Glyph 65, Exp: 0"
+"OPENSANS"->Str0
+65
+Asm(prgmFEDITB
+P+1->P
+If Ans=0
+Then
+Disp "T4: PASS"
+Else
+F+1->F
+Disp "T4: FAIL"
+Disp Ans
+End
+Pause 
+
+"====================
+"T5: Verify large dims
+"Requires T4 success
+"Exp: dim([J]) {14,12}
+"====================
+ClrHome
+Disp "T5: LARGE DIMS CHK"
+Disp "Exp: 14 rows, 12 cols"
+P+1->P
+If dim([J])(1)=14 and dim([J])(2)=12
+Then
+Disp "T5: PASS"
+Else
+F+1->F
+Disp "T5: FAIL"
+Disp dim([J])
+End
+Pause 
+
+"====================
+"T6: Check matrix data
+"is binary 0/1
+"Samples corners
+"Exp: both 0 or 1
+"====================
+ClrHome
+Disp "T6: LARGE DATA CHK"
+Disp "Binary cells only"
+P+1->P
+If ([J](1,1)=0 or [J](1,1)=1) and ([J](14,12)=0 or [J](14,12)=1)
+Then
+Disp "T6: PASS"
+Else
+F+1->F
+Disp "T6: FAIL"
+Disp [J](1,1)
+Disp [J](14,12)
+End
+Pause 
+
+"====================
+"T7: Read small glyph
+"Glyph 65+256=321
+"small 'A'
+"Exp: Ans=0
+"====================
+ClrHome
+Disp "T7: READ SMALL A"
+Disp "Glyph 321, Exp: 0"
+"OPENSANS"->Str0
+321
+Asm(prgmFEDITB
+P+1->P
+If Ans=0
+Then
+Disp "T7: PASS"
+Else
+F+1->F
+Disp "T7: FAIL"
+Disp Ans
+End
+Pause 
+
+"====================
+"T8: Verify small dims
+"Requires T7 success
+"Rows=12 cols 1-16
+"====================
+ClrHome
+Disp "T8: SMALL DIMS CHK"
+Disp "Exp: 12 rows, 1-16 cols"
+P+1->P
+If dim([J])(1)=12 and dim([J])(2)>=1 and dim([J])(2)<=16
+Then
+Disp "T8: PASS"
+Else
+F+1->F
+Disp "T8: FAIL"
+Disp dim([J])
+End
+Pause 
+
+"====================
+"T9: Re-read large then
+"write back roundtrip
+"Needs unarchived
+"Exp: 0 (13=skip)
+"====================
+ClrHome
+Disp "T9: LRG ROUNDTRIP"
+Disp "W/needs unarchived"
+"OPENSANS"->Str0
+65
+Asm(prgmFEDITB
+If Ans≠0
+Then
+Disp "T9: SKIP (READ ERR)"
+Disp Ans
+Else
+"OPENSANS"->Str0
+1065
+Asm(prgmFEDITB
+P+1->P
+If Ans=0
+Then
+Disp "T9: PASS"
+Else
+If Ans=13
+Then
+Disp "T9: SKIP (ARCHIVD)"
+P-1->P
+Else
+F+1->F
+Disp "T9: FAIL"
+Disp Ans
+End
+End
+End
+Pause 
+
+"====================
+"T10: Re-read small then
+"write back roundtrip
+"Same archive caveat
+"Exp: 0 (13=skip)
+"====================
+ClrHome
+Disp "T10: SML ROUNDTRIP"
+Disp "W/needs unarchived"
+"OPENSANS"->Str0
+321
+Asm(prgmFEDITB
+If Ans≠0
+Then
+Disp "T10:SKIP (READ ERR)"
+Disp Ans
+Else
+"OPENSANS"->Str0
+1321
+Asm(prgmFEDITB
+P+1->P
+If Ans=0
+Then
+Disp "T10: PASS"
+Else
+If Ans=13
+Then
+Disp "T10:SKIP (ARCHIVD)"
+P-1->P
+Else
+F+1->F
+Disp "T10: FAIL"
+Disp Ans
+End
+End
+End
+Pause 
+
+"====================
+"T11: Write-mode creates
+"a new font appvar
+"Step1: read glyph 65
+"Step2: write to TESTFNT
+"Step3: read back, check
+"Exer new-file-path
+"TESTFNT stays after
+"====================
+ClrHome
+Disp "T11: CREATE NEW FILE"
+Disp "Creates TESTFNT"
+"OPENSANS"->Str0
+65
+Asm(prgmFEDITB
+If Ans≠0
+Then
+Disp "T11:SKIP (READ ERR)"
+Disp Ans
+Else
+"TESTFNT"->Str0
+1065
+Asm(prgmFEDITB
+If Ans≠0
+Then
+F+1->F
+P+1->P
+Disp "T11:FAIL ON WRITE"
+Disp Ans
+Else
+"TESTFNT"->Str0
+65
+Asm(prgmFEDITB
+P+1->P
+If Ans=0
+Then
+Disp "T11: PASS"
+Else
+F+1->F
+Disp "T11:FAIL ON READBK"
+Disp Ans
+End
+End
+End
+Pause 
+
+"====================
+"T12: Verify readback
+"dims match original
+"large glyph
+"Requires T11 success
+"Exp: dim([J]) {14,12}
+"====================
+ClrHome
+Disp "T12: READBK DIM CHK"
+Disp "Exp: 14 rows, 12 cols"
+P+1->P
+If dim([J])(1)=14 and dim([J])(2)=12
+Then
+Disp "T12: PASS"
+Else
+F+1->F
+Disp "T12: FAIL"
+Disp dim([J])
+End
+Pause 
+
+"====================
+"RESULTS
+"====================
+ClrHome
+Disp "====RESULTS===="
+Disp "Tests attempted:"
+Disp P
+Disp "Failures:"
+Disp F
+If F=0
+Then
+Disp "ALL TESTS PASSED"
+Else
+Disp "SOME TESTS FAILED"
+End
