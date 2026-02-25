@@ -1,0 +1,743 @@
+PROGRAM:TESTFE2
+ClrHome
+0->P
+0->F
+Disp "=FEDITB GFX TESTS="
+Disp "Assumes TESTFED OK"
+Disp "Font: OPENSANS"
+Disp "Target: TESTFNT"
+Disp "Uses graph screen"
+Pause 
+FnOff 
+AxesOff
+
+"====================
+"T1: Render large A
+"Read glyph 65 and
+"draw on graph screen
+"Exp: 0, visual A shape
+"====================
+ClrHome
+Disp "T1: RENDER LARGE A"
+Disp "Glyph 65, Exp: 0"
+"OPENSANS"->Str0
+65
+Asm(prgmFEDITB
+Ans->E
+P+1->P
+If E!=0
+Then
+	F+1->F
+	Disp "T1: FAIL (READ)"
+	Disp E
+Else
+	ClrDraw
+	dim([J])->L1
+	For(I,1,L1(1))
+	For(N,1,L1(2))
+	If [J](I,N)=1
+	Pxl-On(I+9,N+9)
+	End
+	End
+	Text(0,0,"T1: LARGE A GLYPH")
+	Disp "T1: PASS (VISUAL)"
+End
+Pause 
+
+"====================
+"T2: Pixel density
+"Count set pixels in A
+"Should be >0 and
+"less than total cells
+"A is not blank or full
+"Exp: 0 < count < total
+"====================
+ClrHome
+Disp "T2: PIXEL DENSITY A"
+Disp "Exp: 0 < on < total"
+"OPENSANS"->Str0
+65
+Asm(prgmFEDITB
+Ans->E
+P+1->P
+If E!=0
+Then
+	F+1->F
+	Disp "T2: FAIL (READ)"
+	Disp E
+Else
+	dim([J])->L1
+	0->S
+	For(I,1,L1(1))
+	For(N,1,L1(2))
+	S+[J](I,N)->S
+	End
+	End
+	L1(1)*L1(2)->T
+	If S>0 and S<T
+	Then
+		Disp "T2: PASS"
+		Disp "On pixels:"
+		Disp S
+	Else
+		F+1->F
+		Disp "T2: FAIL"
+		Disp "On:"
+		Disp S
+		Disp "Total:"
+		Disp T
+	End
+End
+Pause 
+
+"====================
+"T3: Render large O
+"Read glyph 79 (O)
+"Draw on graph screen
+"Exp: 0, visual O shape
+"====================
+ClrHome
+Disp "T3: RENDER LARGE O"
+Disp "Glyph 79, Exp: 0"
+"OPENSANS"->Str0
+79
+Asm(prgmFEDITB
+Ans->E
+P+1->P
+If E!=0
+Then
+	F+1->F
+	Disp "T3: FAIL (READ)"
+	Disp E
+Else
+	ClrDraw
+	dim([J])->L1
+	For(I,1,L1(1))
+	For(N,1,L1(2))
+	If [J](I,N)=1
+	Pxl-On(I+9,N+9)
+	End
+	End
+	Text(0,0,"T3: LARGE O GLYPH")
+	Disp "T3: PASS (VISUAL)"
+End
+Pause 
+
+"====================
+"T4: Render small A
+"Read glyph 321
+"Draw on graph screen
+"Exp: 0, visual small A
+"====================
+ClrHome
+Disp "T4: RENDER SMALL A"
+Disp "Glyph 321, Exp: 0"
+"OPENSANS"->Str0
+321
+Asm(prgmFEDITB
+Ans->E
+P+1->P
+If E!=0
+Then
+	F+1->F
+	Disp "T4: FAIL (READ)"
+	Disp E
+Else
+	ClrDraw
+	dim([J])->L1
+	For(I,1,L1(1))
+	For(N,1,L1(2))
+	If [J](I,N)=1
+	Pxl-On(I+9,N+9)
+	End
+	End
+	Text(0,0,"T4: SMALL A GLYPH")
+	Disp "T4: PASS (VISUAL)"
+End
+Pause 
+
+"====================
+"T5: Side-by-side
+"Render large A and O
+"next to each other
+"for comparison
+"Exp: two distinct shapes
+"====================
+ClrHome
+Disp "T5: SIDE BY SIDE"
+Disp "A and O together"
+ClrDraw
+"OPENSANS"->Str0
+65
+Asm(prgmFEDITB
+Ans->E
+P+1->P
+If E!=0
+Then
+	F+1->F
+	Disp "T5: FAIL (READ A)"
+	Disp E
+Else
+	dim([J])->L1
+	For(I,1,L1(1))
+	For(N,1,L1(2))
+	If [J](I,N)=1
+	Pxl-On(I+9,N+9)
+	End
+	End
+	"OPENSANS"->Str0
+	79
+	Asm(prgmFEDITB
+	Ans->E
+	If E!=0
+	Then
+		F+1->F
+		Disp "T5: FAIL (READ O)"
+		Disp E
+	Else
+		dim([J])->L1
+		For(I,1,L1(1))
+		For(N,1,L1(2))
+		If [J](I,N)=1
+		Pxl-On(I+9,N+39)
+		End
+		End
+		Text(0,0,"T5: A(left) O(right)")
+		Disp "T5: PASS (VISUAL)"
+	End
+End
+Pause 
+
+"====================
+"T6: Write glyph 65
+"to codepoint 129
+"in TESTFNT then read
+"back and compare
+"129 is outside ASCII
+"printable range
+"Exp: 0 on all ops
+"====================
+ClrHome
+Disp "T6: WRITE TO CP 129"
+Disp "Exp: 0, exact match"
+"OPENSANS"->Str0
+65
+Asm(prgmFEDITB
+Ans->E
+If E!=0
+Then
+	P+1->P
+	F+1->F
+	Disp "T6: FAIL (SRC READ)"
+	Disp E
+Else
+	[J]->[A]
+	"TESTFNT"->Str0
+	1129
+	Asm(prgmFEDITB
+	Ans->E
+	If E!=0
+	Then
+		P+1->P
+		F+1->F
+		Disp "T6: FAIL (WRITE)"
+		Disp E
+	Else
+		"TESTFNT"->Str0
+		129
+		Asm(prgmFEDITB
+		Ans->E
+		P+1->P
+		If E!=0
+		Then
+			F+1->F
+			Disp "T6: FAIL (READBK)"
+			Disp E
+		Else
+			dim([J])->L1
+			dim([A])->L2
+			If L1(1)!=L2(1) or L1(2)!=L2(2)
+			Then
+				F+1->F
+				Disp "T6: FAIL (DIMS)"
+			Else
+				0->M
+				For(I,1,L1(1))
+				For(N,1,L1(2))
+				If [J](I,N)!=[A](I,N)
+				M+1->M
+				End
+				End
+				If M=0
+				Then
+					Disp "T6: PASS"
+				Else
+					F+1->F
+					Disp "T6: FAIL MISMATCH"
+					Disp M
+				End
+			End
+		End
+	End
+End
+Pause 
+
+"====================
+"T7: Render CP 129
+"from TESTFNT
+"Should look like A
+"since we wrote A there
+"Exp: visual A shape
+"====================
+ClrHome
+Disp "T7: RENDER CP 129"
+Disp "Exp: looks like A"
+"TESTFNT"->Str0
+129
+Asm(prgmFEDITB
+Ans->E
+P+1->P
+If E!=0
+Then
+	F+1->F
+	Disp "T7: FAIL (READ)"
+	Disp E
+Else
+	ClrDraw
+	dim([J])->L1
+	For(I,1,L1(1))
+	For(N,1,L1(2))
+	If [J](I,N)=1
+	Pxl-On(I+9,N+9)
+	End
+	End
+	Text(0,0,"T7: CP129 = A SHAPE")
+	Disp "T7: PASS (VISUAL)"
+End
+Pause 
+
+"====================
+"T8: Modify glyph and
+"roundtrip verify
+"Read CP 129, flip
+"pixel at (1,1)
+"copy [J] to [A]
+"write back, read back
+"compare [J] vs [A]
+"Exp: exact match
+"====================
+ClrHome
+Disp "T8: MODIFY+ROUNDTRP"
+Disp "Flip (1,1), compare"
+"TESTFNT"->Str0
+129
+Asm(prgmFEDITB
+Ans->E
+If E!=0
+Then
+	P+1->P
+	F+1->F
+	Disp "T8: FAIL (READ)"
+	Disp E
+Else
+	1-[J](1,1)->[J](1,1)
+	[J]->[A]
+	"TESTFNT"->Str0
+	1129
+	Asm(prgmFEDITB
+	Ans->E
+	If E!=0
+	Then
+		P+1->P
+		F+1->F
+		Disp "T8: FAIL (WRITE)"
+		Disp E
+	Else
+		"TESTFNT"->Str0
+		129
+		Asm(prgmFEDITB
+		Ans->E
+		P+1->P
+		If E!=0
+		Then
+			F+1->F
+			Disp "T8: FAIL (READBK)"
+			Disp E
+		Else
+			dim([J])->L1
+			dim([A])->L2
+			If L1(1)!=L2(1) or L1(2)!=L2(2)
+			Then
+				F+1->F
+				Disp "T8: FAIL (DIMS)"
+			Else
+				0->M
+				For(I,1,L1(1))
+				For(N,1,L1(2))
+				If [J](I,N)!=[A](I,N)
+				M+1->M
+				End
+				End
+				If M=0
+				Then
+					Disp "T8: PASS"
+				Else
+					F+1->F
+					Disp "T8: FAIL MISMATCH"
+					Disp M
+				End
+			End
+		End
+	End
+End
+Pause 
+
+"====================
+"T9: Render modified
+"glyph vs original
+"side by side on graph
+"Modified on left
+"Original A on right
+"Pixel (1,1) differs
+"Exp: near-identical
+"====================
+ClrHome
+Disp "T9: RENDER MOD vs A"
+Disp "Left=mod Right=orig"
+"TESTFNT"->Str0
+129
+Asm(prgmFEDITB
+Ans->E
+P+1->P
+If E!=0
+Then
+	F+1->F
+	Disp "T9: FAIL (READ MOD)"
+	Disp E
+Else
+	ClrDraw
+	dim([J])->L1
+	For(I,1,L1(1))
+	For(N,1,L1(2))
+	If [J](I,N)=1
+	Pxl-On(I+9,N+9)
+	End
+	End
+	"OPENSANS"->Str0
+	65
+	Asm(prgmFEDITB
+	If Ans=0
+	Then
+		dim([J])->L2
+		For(I,1,L2(1))
+		For(N,1,L2(2))
+		If [J](I,N)=1
+		Pxl-On(I+9,N+39)
+		End
+		End
+		Text(0,0,"T9: MOD(L) ORIG(R)")
+	Else
+		Text(0,0,"T9: MODIFIED GLYPH")
+	End
+	Disp "T9: PASS (VISUAL)"
+End
+Pause 
+
+"====================
+"T10: Multi-pixel modify
+"and full compare
+"Flip entire row 1
+"of CP 129 in TESTFNT
+"copy to [A], write,
+"read back, compare all
+"Exp: exact match
+"====================
+ClrHome
+Disp "T10:MULTI-PX MODIFY"
+Disp "Flip row 1, compare"
+"TESTFNT"->Str0
+129
+Asm(prgmFEDITB
+Ans->E
+If E!=0
+Then
+	P+1->P
+	F+1->F
+	Disp "T10:FAIL (READ)"
+	Disp E
+Else
+	dim([J])->L1
+	For(N,1,L1(2))
+	1-[J](1,N)->[J](1,N)
+	End
+	[J]->[A]
+	"TESTFNT"->Str0
+	1129
+	Asm(prgmFEDITB
+	Ans->E
+	If E!=0
+	Then
+		P+1->P
+		F+1->F
+		Disp "T10:FAIL (WRITE)"
+		Disp E
+	Else
+		"TESTFNT"->Str0
+		129
+		Asm(prgmFEDITB
+		Ans->E
+		P+1->P
+		If E!=0
+		Then
+			F+1->F
+			Disp "T10:FAIL (READBK)"
+			Disp E
+		Else
+			0->M
+			For(I,1,L1(1))
+			For(N,1,L1(2))
+			If [J](I,N)!=[A](I,N)
+			M+1->M
+			End
+			End
+			If M=0
+			Then
+				Disp "T10: PASS"
+			Else
+				F+1->F
+				Disp "T10:FAIL MISMATCH"
+				Disp M
+			End
+		End
+	End
+End
+Pause 
+
+"====================
+"T11: Render row-flipped
+"glyph on graph screen
+"Exp: top row inverted
+"vs original A
+"====================
+ClrHome
+Disp "T11:RENDER FLIPPED"
+Disp "Exp: row 1 inverted"
+"TESTFNT"->Str0
+129
+Asm(prgmFEDITB
+Ans->E
+P+1->P
+If E!=0
+Then
+	F+1->F
+	Disp "T11:FAIL (READ)"
+	Disp E
+Else
+	ClrDraw
+	dim([J])->L1
+	For(I,1,L1(1))
+	For(N,1,L1(2))
+	If [J](I,N)=1
+	Pxl-On(I+9,N+9)
+	End
+	End
+	"OPENSANS"->Str0
+	65
+	Asm(prgmFEDITB
+	If Ans=0
+	Then
+		dim([J])->L2
+		For(I,1,L2(1))
+		For(N,1,L2(2))
+		If [J](I,N)=1
+		Pxl-On(I+9,N+39)
+		End
+		End
+		Text(0,0,"T11:FLIP(L) ORIG(R)")
+	Else
+		Text(0,0,"T11:FLIPPED GLYPH")
+	End
+	Disp "T11: PASS (VISUAL)"
+End
+Pause 
+
+"====================
+"T12: Small glyph write
+"to CP 129 roundtrip
+"Write small A (321)
+"to TESTFNT CP 385
+"(129+256=small 129)
+"read back and compare
+"Exp: exact match
+"====================
+ClrHome
+Disp "T12:SML CP129 RNDTR"
+Disp "Exp: 0, exact match"
+"OPENSANS"->Str0
+321
+Asm(prgmFEDITB
+Ans->E
+If E!=0
+Then
+	P+1->P
+	F+1->F
+	Disp "T12:FAIL (SRC READ)"
+	Disp E
+Else
+	[J]->[A]
+	"TESTFNT"->Str0
+	1385
+	Asm(prgmFEDITB
+	Ans->E
+	If E!=0
+	Then
+		P+1->P
+		F+1->F
+		Disp "T12:FAIL (WRITE)"
+		Disp E
+	Else
+		"TESTFNT"->Str0
+		385
+		Asm(prgmFEDITB
+		Ans->E
+		P+1->P
+		If E!=0
+		Then
+			F+1->F
+			Disp "T12:FAIL (READBK)"
+			Disp E
+		Else
+			dim([J])->L1
+			dim([A])->L2
+			If L1(1)!=L2(1) or L1(2)!=L2(2)
+			Then
+				F+1->F
+				Disp "T12:FAIL (DIMS)"
+			Else
+				0->M
+				For(I,1,L1(1))
+				For(N,1,L1(2))
+				If [J](I,N)!=[A](I,N)
+				M+1->M
+				End
+				End
+				If M=0
+				Then
+					Disp "T12: PASS"
+				Else
+					F+1->F
+					Disp "T12:FAIL MISMATCH"
+					Disp M
+				End
+			End
+		End
+	End
+End
+Pause 
+
+"====================
+"T13: Checkerboard write
+"Create a known pattern
+"in [J], write to CP 130
+"read back and verify
+"every cell matches
+"Exp: exact match
+"====================
+ClrHome
+Disp "T13:CHECKERBOARD WR"
+Disp "Exp: 0, exact match"
+{14,12}->dim([J])
+For(I,1,14)
+For(N,1,12)
+remainder(I+N,2)->[J](I,N)
+End
+End
+[J]->[A]
+"TESTFNT"->Str0
+1130
+Asm(prgmFEDITB
+Ans->E
+If E!=0
+Then
+	P+1->P
+	F+1->F
+	Disp "T13:FAIL (WRITE)"
+	Disp E
+Else
+	"TESTFNT"->Str0
+	130
+	Asm(prgmFEDITB
+	Ans->E
+	P+1->P
+	If E!=0
+	Then
+		F+1->F
+		Disp "T13:FAIL (READBK)"
+		Disp E
+	Else
+		0->M
+		For(I,1,14)
+		For(N,1,12)
+		If [J](I,N)!=[A](I,N)
+		M+1->M
+		End
+		End
+		If M=0
+		Then
+			Disp "T13: PASS"
+		Else
+			F+1->F
+			Disp "T13:FAIL MISMATCH"
+			Disp M
+		End
+	End
+End
+Pause 
+
+"====================
+"T14: Render checkerboard
+"on graph screen
+"Exp: alternating pixels
+"====================
+ClrHome
+Disp "T14:RENDER CHECKER"
+Disp "Exp: alternating px"
+"TESTFNT"->Str0
+130
+Asm(prgmFEDITB
+Ans->E
+P+1->P
+If E!=0
+Then
+	F+1->F
+	Disp "T14:FAIL (READ)"
+	Disp E
+Else
+	ClrDraw
+	dim([J])->L1
+	For(I,1,L1(1))
+	For(N,1,L1(2))
+	If [J](I,N)=1
+	Pxl-On(I+9,N+9)
+	End
+	End
+	Text(0,0,"T14:CHECKER PATTERN")
+	Disp "T14: PASS (VISUAL)"
+End
+Pause 
+
+"====================
+"RESULTS
+"====================
+ClrHome
+Disp "====RESULTS===="
+Disp "Tests attempted:"
+Disp P
+Disp "Failures:"
+Disp F
+If F=0
+Then
+	Disp "ALL TESTS PASSED"
+Else
+	Disp "SOME TESTS FAILED"
+End
