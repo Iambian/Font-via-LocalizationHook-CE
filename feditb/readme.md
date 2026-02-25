@@ -106,6 +106,66 @@ This will compile `feditb.asm` and generate `FEDITB.8xp`.
 
 Transfer `FEDITB.8xp` to your TI-84 Plus CE calculator using TI Connect CE or similar software.
 
+## Testing
+
+TI-BASIC test programs are provided in the `tests/` directory to verify FEDITB correctness on hardware. The ASCII source files (`.txt`) are the authoritative source of record; pre-compiled `.8xp` files are included for convenience.
+
+### Test Programs
+
+| Source file | Program name | Compiled file | Description |
+|---|---|---|---|
+| `TESTFED.txt` | `TESTFED` | `FEDTBTST.8xp` | Core functional test suite |
+| `TESTFE2.txt` | `TESTFE2` | `FEDTBTS2.8xp` | Graphics and extended data-integrity tests |
+
+**TESTFED** — 12 automated tests covering:
+- Error condition handling (font not found, invalid glyph ID, unmapped glyph)
+- Reading large and small font glyphs into matrix `[J]`
+- Verifying returned matrix dimensions and binary cell values
+- Large and small glyph write-back roundtrips
+- Automatic creation of a new font file (`TESTFNT`) when the target does not exist
+- Readback dimension verification after a write
+
+**TESTFE2** — 14 tests combining automated data checks with visual graph-screen output:
+- Rendering individual large and small glyphs (`A`, `O`)
+- Pixel-density sanity check (glyph is neither blank nor fully filled)
+- Side-by-side rendering of two glyphs for comparison
+- Writing a glyph to a non-ASCII codepoint (129) and comparing byte-for-byte on readback
+- Single-pixel and full-row modification roundtrips with exact-match verification
+- Visual rendering of modified glyphs alongside originals
+- Small glyph write/readback roundtrip
+- Synthetic checkerboard pattern write and verification
+- Graph-screen render of the checkerboard pattern
+
+Both programs track a running pass/fail count and display a summary at the end.
+
+### Prerequisites
+
+- `FEDITB.8xp` installed on the calculator (see [Building](#building) and [Installation](#installation))
+- `OPENSANS.8xp` transferred to the calculator and **unarchived** — this font appvar is read by both test programs; a copy is provided in `tests/OPENSANS.8xp`
+- For roundtrip write tests (`TESTFED` T9/T10), `OPENSANS` must be in RAM (not archived)
+
+### Compiling the Source Files with SourceCoder 3
+
+The `.txt` source files use ASCII TI-BASIC syntax compatible with [SourceCoder 3](https://sc.cemetech.net), an online tool by Cemetech.
+
+1. Open [https://sc.cemetech.net](https://sc.cemetech.net) in a browser.
+2. Click **Open/New** and select the `.txt` source file (`TESTFED.txt` or `TESTFE2.txt`).
+3. SourceCoder reads the `PROGRAM:name` header at the top of the file and sets the program name automatically.
+4. Click **Export** to download the compiled `.8xp` file.
+5. Transfer the resulting `.8xp` to the calculator using TI Connect CE or similar software.
+
+The pre-compiled files already present in `tests/` were produced using this process.
+
+### Running the Tests
+
+1. Transfer all required files to the calculator (see Prerequisites above).
+2. On the calculator, press `[PRGM]`, select `TESTFED`, and press `[ENTER]`.
+3. Follow the on-screen prompts — each test pauses for review before continuing.
+4. Note the final pass/fail summary.
+5. Repeat with `TESTFE2`. This program uses the graph screen for visual output; inspect each rendered glyph before pressing `[ENTER]` to advance.
+
+> **Note:** `TESTFE2` creates and modifies a temporary font appvar named `TESTFNT` during its run. This variable is left on the calculator after the test completes and can be deleted manually.
+
 ## License
 
 MIT License - Copyright 2026 Rodger "Iambian" Weisman
@@ -114,7 +174,7 @@ See [LICENSE](LICENSE) for full details.
 
 ## Current Status
 
-Ready for initial testing. Both read and write modes are implemented.
+Implementation complete. TI-BASIC test programs have been written and compiled to verify correctness on hardware.
 
 ### Working Features
 - Reading large and small font glyphs into matrix [J]
@@ -125,4 +185,8 @@ Ready for initial testing. Both read and write modes are implemented.
 - Compacting and writing back glyph tables to the font file
 - Matrix [J] creation with correct dimensions in read mode
 - Comprehensive error reporting
+
+### Tests Added
+- `tests/TESTFED.txt` — 12-test functional suite covering error codes, read/write, and roundtrip correctness (compiled: `FEDTBTST.8xp`)
+- `tests/TESTFE2.txt` — 14-test graphics and data-integrity suite with graph-screen visual output (compiled: `FEDTBTS2.8xp`)
 
