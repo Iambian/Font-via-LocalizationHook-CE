@@ -103,6 +103,7 @@ glyphDataS   = glyphDataL+(255*SIZEOF_LARGE_GLYPH) ;
 .db $EF, $7B
 
 programStart:
+    ;jr  $ ;DEBUGGING HALT
     ld  (var_SP),sp
     ld  (errorOverrideEnd_SMC_from_errorOverride),sp
     ld  hl,err_OK
@@ -194,6 +195,7 @@ main_writeMode_maybeCreateNewFile:
     cp  a,ERR_FONT_NOT_FOUND
     jp  nz,errorHandler     ;reraise error if any other error
     ;Create new font file with no entries.
+    call _OP6ToOP1  ;Unclobber OP1 for file creation
     ;NOTE: OP1 is already loaded with the name of the file from findNameInString
     ld  hl,fontObj_stubEnd-fontObj_stubStart+(256+7+8)   ;stub size + glyph LUT + max VAT size
     call _EnoughMem
@@ -511,17 +513,6 @@ _:  pop bc
 ;glyph indices. Since 0 is not a codepoint, that will be what is used to indicate
 ;that a glyph is unmapped. Otherwise, its value will be the same as its codepoint.
 populateGlyphTables:
-    push hl
-        ld  hl,glyphTable
-        ld  de,glyphTable+1
-        ld  bc,(glyphDataS-glyphTable)-1
-        xor a,a
-        ld  (hl),a
-        ldir     ;initialize all tables.
-        ;TODO: FIGURE OUT IF THIS INITIALIZATION IS ACTUALLY NEEDED.
-        ;FUNCTIONALLY, THE GLYPH TABLE BY ITSELF SHOULD BE SUFFICIENT FOR
-        ;ALL VIABLE REFERENCES, AND THE TABLE IS FULLY WRITTEN TO.
-    pop hl
     ld  de,(hl)
     add hl,de   ;HL now points to file's glyph LUT
     ld  (glyphLUTPtr),hl
@@ -633,6 +624,7 @@ _:  ex  de,hl         ;DE=OP1, HL=start of string's name data
     ld  (de),a        ;write filetype to OP1+0.
     inc de            ;Because copyNameToOP1 wants OP1+1 in DE.
     call copyNameToOP1  ;not a simple ldir. Must account for lowercase tokens.
+    call _OP1ToOP6    ;Overrides for file not found clobbers OP1. Need to keep name around for file creation.
     call _ChkFindSym    ;This is the call needed to find programs and appvars.
     jp  c,err_FontNotFound
     call _ChkInRam  ;in: DE=fileaddr, out: Z=RAM, NZ=Archive. Destroys: None.
@@ -667,10 +659,12 @@ _:  ld  a,(de)
     inc de
     djnz -_
     ex  de,hl   ;after: HL=pointer to font file address section, DE=unused
-    ;Extra check: Verify that the glyph LUT is valid.
-    ;This does not check for duplicate mappings. A duplicate mapping 
-    ;is considered an error in the font builder.
     push hl
+        ld  de,(hl) ;load distance to data section
+        add hl,de   ;HL now points to glyph LUT in file.
+        ;Extra check: Verify that the glyph LUT is valid.
+        ;This does not check for duplicate mappings. A duplicate mapping 
+        ;is considered an error in the font builder.
         ld b,255
         ld e,(hl)   ;target number of glyphs
         ld d,0      ;will be the number of glyphs that are mapped
@@ -843,7 +837,7 @@ matrixJ:
 str0:
 .db StrngObj, tVarStrng, tStr0, 0, 0
 fontPackHeader:
-.db tExtTok,tAsm84CeCmp,$18,$09,"FNTPK",0
+.db tExtTok,tAsm84CeCmp,$18,$0C,"FNTPK",0
 fontPackHeaderEnd:
 
 ;-----------------------------------------------------------------------------

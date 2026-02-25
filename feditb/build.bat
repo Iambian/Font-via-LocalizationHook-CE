@@ -1,2 +1,2 @@
 @echo off
-..\tools\spasm-ng.exe -E -A feditb.asm FEDITB.8xp
+..\tools\spasm-ng.exe -E -L -A feditb.asm FEDITB.8xp

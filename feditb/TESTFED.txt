@@ -22,11 +22,11 @@ Ans->E
 P+1->P
 If E=7
 Then
-Disp "T1: PASS"
+	Disp "T1: PASS"
 Else
-F+1->F
-Disp "T1: FAIL"
-Disp E
+	F+1->F
+	Disp "T1: FAIL"
+	Disp E
 End
 Pause 
 
@@ -46,11 +46,11 @@ Ans->E
 P+1->P
 If E=2
 Then
-Disp "T2: PASS"
+	Disp "T2: PASS"
 Else
-F+1->F
-Disp "T2: FAIL"
-Disp E
+	F+1->F
+	Disp "T2: FAIL"
+	Disp E
 End
 Pause 
 
@@ -74,11 +74,11 @@ Ans->E
 P+1->P
 If E=3
 Then
-Disp "T3: PASS"
+	Disp "T3: PASS"
 Else
-F+1->F
-Disp "T3: FAIL"
-Disp E
+	F+1->F
+	Disp "T3: FAIL"
+	Disp E
 End
 Pause 
 
@@ -99,11 +99,11 @@ Ans->E
 P+1->P
 If E=0
 Then
-Disp "T4: PASS"
+	Disp "T4: PASS"
 Else
-F+1->F
-Disp "T4: FAIL"
-Disp E
+	F+1->F
+	Disp "T4: FAIL"
+	Disp E
 End
 Pause 
 
@@ -119,11 +119,11 @@ P+1->P
 dim([J])
 If Ans(1)=14 and Ans(2)=12
 Then
-Disp "T5: PASS"
+	Disp "T5: PASS"
 Else
-F+1->F
-Disp "T5: FAIL"
-Disp dim([J])
+	F+1->F
+	Disp "T5: FAIL"
+	Disp dim([J])
 End
 Pause 
 
@@ -139,12 +139,12 @@ Disp "Binary cells only"
 P+1->P
 If ([J](1,1)=0 or [J](1,1)=1) and ([J](14,12)=0 or [J](14,12)=1)
 Then
-Disp "T6: PASS"
+	Disp "T6: PASS"
 Else
-F+1->F
-Disp "T6: FAIL"
-Disp [J](1,1)
-Disp [J](14,12)
+	F+1->F
+	Disp "T6: FAIL"
+	Disp [J](1,1)
+	Disp [J](14,12)
 End
 Pause 
 
@@ -164,11 +164,11 @@ Ans->E
 P+1->P
 If E=0
 Then
-Disp "T7: PASS"
+	Disp "T7: PASS"
 Else
-F+1->F
-Disp "T7: FAIL"
-Disp E
+	F+1->F
+	Disp "T7: FAIL"
+	Disp E
 End
 Pause 
 
@@ -184,11 +184,11 @@ P+1->P
 dim([J])
 If Ans(1)=12 and Ans(2)>=1 and Ans(2)<=16
 Then
-Disp "T8: PASS"
+	Disp "T8: PASS"
 Else
-F+1->F
-Disp "T8: FAIL"
-Disp dim([J])
+	F+1->F
+	Disp "T8: FAIL"
+	Disp dim([J])
 End
 Pause 
 
@@ -204,30 +204,30 @@ Disp "W/needs unarchived"
 "OPENSANS"->Str0
 65
 Asm(prgmFEDITB
-If Ans≠0
+If Ans!=0
 Then
-Disp "T9: SKIP (READ ERR)"
-Disp Ans
+	Disp "T9: SKIP (READ ERR)"
+	Disp Ans
 Else
-"OPENSANS"->Str0
-1065
-Asm(prgmFEDITB
-Ans->E
-P+1->P
-If E=0
-Then
-Disp "T9: PASS"
-Else
-If E=13
-Then
-Disp "T9: SKIP (ARCHIVD)"
-P-1->P
-Else
-F+1->F
-Disp "T9: FAIL"
-Disp E
-End
-End
+	"OPENSANS"->Str0
+	1065
+	Asm(prgmFEDITB
+	Ans->E
+	P+1->P
+	If E=0
+	Then
+		Disp "T9: PASS"
+	Else
+		If E=13
+		Then
+			Disp "T9: SKIP (ARCHIVD)"
+			P-1->P
+		Else
+			F+1->F
+			Disp "T9: FAIL"
+			Disp E
+		End
+	End
 End
 Pause 
 
@@ -243,30 +243,30 @@ Disp "W/needs unarchived"
 "OPENSANS"->Str0
 321
 Asm(prgmFEDITB
-If Ans≠0
+If Ans!=0
 Then
-Disp "T10:SKIP (READ ERR)"
-Disp Ans
+	Disp "T10:SKIP (READ ERR)"
+	Disp Ans
 Else
-"OPENSANS"->Str0
-1321
-Asm(prgmFEDITB
-Ans->E
-P+1->P
-If E=0
-Then
-Disp "T10: PASS"
-Else
-If E=13
-Then
-Disp "T10:SKIP (ARCHIVD)"
-P-1->P
-Else
-F+1->F
-Disp "T10: FAIL"
-Disp E
-End
-End
+	"OPENSANS"->Str0
+	1321
+	Asm(prgmFEDITB
+	Ans->E
+	P+1->P
+	If E=0
+	Then
+		Disp "T10: PASS"
+	Else
+		If E=13
+		Then
+			Disp "T10:SKIP (ARCHIVD)"
+			P-1->P
+		Else
+			F+1->F
+			Disp "T10: FAIL"
+			Disp E
+		End
+	End
 End
 Pause 
 
@@ -285,36 +285,36 @@ Disp "Creates TESTFNT"
 "OPENSANS"->Str0
 65
 Asm(prgmFEDITB
-If Ans≠0
+If Ans!=0
 Then
-Disp "T11:SKIP (READ ERR)"
-Disp Ans
+	Disp "T11:SKIP (READ ERR)"
+	Disp Ans
 Else
-"TESTFNT"->Str0
-1065
-Asm(prgmFEDITB
-Ans->E
-If E≠0
-Then
-F+1->F
-P+1->P
-Disp "T11:FAIL ON WRITE"
-Disp E
-Else
-"TESTFNT"->Str0
-65
-Asm(prgmFEDITB
-Ans->E
-P+1->P
-If E=0
-Then
-Disp "T11: PASS"
-Else
-F+1->F
-Disp "T11:FAIL ON READBK"
-Disp E
-End
-End
+	"TESTFNT"->Str0
+	1065
+	Asm(prgmFEDITB
+	Ans->E
+	If E!=0
+	Then
+		F+1->F
+		P+1->P
+		Disp "T11:FAIL ON WRITE"
+		Disp E
+	Else
+		"TESTFNT"->Str0
+		65
+		Asm(prgmFEDITB
+		Ans->E
+		P+1->P
+		If E=0
+		Then
+			Disp "T11: PASS"
+		Else
+			F+1->F
+			Disp "T11:FAIL ON READBK"
+			Disp E
+		End
+	End
 End
 Pause 
 
@@ -332,11 +332,11 @@ P+1->P
 dim([J])
 If Ans(1)=14 and Ans(2)=12
 Then
-Disp "T12: PASS"
+	Disp "T12: PASS"
 Else
-F+1->F
-Disp "T12: FAIL"
-Disp dim([J])
+	F+1->F
+	Disp "T12: FAIL"
+	Disp dim([J])
 End
 Pause 
 
@@ -351,7 +351,7 @@ Disp "Failures:"
 Disp F
 If F=0
 Then
-Disp "ALL TESTS PASSED"
+	Disp "ALL TESTS PASSED"
 Else
-Disp "SOME TESTS FAILED"
+	Disp "SOME TESTS FAILED"
 End
