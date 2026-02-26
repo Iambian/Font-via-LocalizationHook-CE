@@ -20,413 +20,206 @@
 #define ERR_OK 0
 #define ERR_FAIL 1
 
+#define SIZEOF_MAX_AVAR_NAME (1+(8*2))+0
+#define SIZEOF_MAX_GROUP_NAME (8)+0
+
+#define MAX_STRING_SIZE SIZEOF_MAX_AVAR_NAME + 1 + SIZEOF_MAX_GROUP_NAME
+
 ;-----------------------------------------------------------------------------
 ; Static workspace in safe RAM
 
 #define SAFERAM_START pixelShadow
 
-strDataPtr       = SAFERAM_START       ;3b
-strDataLen       = strDataPtr+3        ;2b
-pathHasSlash     = strDataLen+2        ;1b
-seg1Ptr          = pathHasSlash+1      ;3b
-seg1Len          = seg1Ptr+3           ;2b
-seg2Ptr          = seg1Len+2           ;3b
-seg2Len          = seg2Ptr+3           ;2b
-wantedType       = seg2Len+2           ;1b
-wantedNameLen    = wantedType+1        ;1b
-groupEOFPtr      = wantedNameLen+1     ;3b
-memberNamePtr    = groupEOFPtr+3       ;3b
-memberDataPtr    = memberNamePtr+3     ;3b
-memberNextPtr    = memberDataPtr+3     ;3b
-
-;-----------------------------------------------------------------------------
+stack_backup        =   SAFERAM_START   ;3b strack address of return
+groupvar_eof_ptr    =   stack_backup+3  ;3b
 
 .org userMem-2
 .db $EF, $7B
 
+;Let's try to do it all inline. Or as inline as possible. Some of these
+;functions are doing nothign but bloating via call overhead.
 programStart:
-	call installFromStr0
-	jp  c,returnFail
-returnOK:
-	ld  a,ERR_OK
-	jr  returnResult
-returnFail:
-	ld  a,ERR_FAIL
-returnResult:
-	call _SetxxOP1
-	call _StoAns
-	ret
+    ; -- Locate string
+    ld hl,errCode_Fail
+    push hl     ;default action: fail. So many fail points. Cheaper to go to it.
+    ld  hl,str0
+    call _Mov9ToOP1
+    call _FindSym
+    ret c       ;Str0 must exist.
+    call _ChkInRam
+    ret nz      ;Str0 must be in RAM.
+    ld  a,(de)  ;only need LSB of string length
+    cp  a,MAX_STRING_SIZE+1 ;actual-maxexpected. Must be carry.
+    ret nc      ;Str0 must be within max size.
+    or  a,a
+    ret z       ;Str0 must not be empty.
+    ld  b,a     ;store LSB for loop counter.
+    inc de      ;Do not check for MSB of string length. Even if it is nonzero
+    inc de      ;we will never read that far. A nonzero MSB sounds like a user problem.
+    ; -- Do filename handling tasks
+    ld  hl,OP1      ;Object to use ChkFindSym on (OP6 for in-group traverse, if needed)
+    call writeObjectType
+handleFilename_loop:
+    ld  a,(de)
+    inc de
+    cp  a,tDiv
+    jr  nz,handleFilename_continueNameCopy
+    ld  (hl),0  ;null terminate
+    ld  hl,OP6
+    call writeObjectType
+    ld  a,GroupObj
+    ld  (OP1),a ;change filetype in OP1 now that we know the name is of a group
+    jr  handleFilename_skipToLoopEnd
+handleFilename_continueNameCopy:
+    cp  a,t2ByteTok
+    jr  nz,handleFilename_continueNameCopy2
+    ld  a,(de)
+    inc de
+    dec b
+    ret z           ;Corrupted 2-byte token. String must not end before this.
+    cp  a,t2ByteTok ;There's a hole in the character set at this location.
+    ccf             ;carry = (a >= t2ByteTok)
+    sbc a,0         ;compress hole
+    sub a,tLa-'a'   ;align to ASCII 'a'
+handleFilename_continueNameCopy2:
+    ld  (hl),a
+    inc hl
+handleFilename_skipToLoopEnd:
+    djnz handleFilename_loop
+    xor a,a
+    ld  (hl),a ;null terminate
+    ; -- Begin file lookup
+    call _ChkFindSym
+    ret c       ;Object must exist.
+    sbc hl,hl   ;Carry guaranteed not set. Clears full HL for later DE swap.
+    call _ChkInRam  ;Z in RAM, NZ if archive. Destroys: None.
+    ex  de,hl       ;swap ahead of time
+    jr  z,handleFileLookup_skipArchiveBytes
+    ld  e,3+6   ;Archive header plus VAT copy preamble
+    add hl,de
+    ld  e,(hl)  ;VAT copy name length
+    inc hl
+    add hl,de
+handleFileLookup_skipArchiveBytes:
+    ld  e,(hl)
+    inc hl
+    ld  d,(hl)
+    ld  a,e
+    or  a,d
+    ret z       ;File must not be empty.
+    inc hl
+    push hl
+        add hl,de
+        ld  (groupvar_eof_ptr),hl
+    pop hl
+    ld  a,(OP1)
+    cp  a,GroupObj
+    jr  nz,handleFileLookup_checkFont
+    ; -- Traverse group file to find font file
+handleFileLookup_groupLoop:
+    push hl
+        ld  de,(groupvar_eof_ptr)
+        or  a,a
+        sbc hl,de
+    pop hl
+    ret nc      ;if pointer at or exceed EOF, return.
+    ;NOTE: Simplistic checks are in place. This will not handle a badly
+    ;corrupted group file. All other checks should catch most problems,
+    ;and the hook dispatch routine checks for a valid hook section.
+    ld  a,(hl)      ;filetype and flags
+    and a,varTypeMask
+    ld  c,a
+    ld  de,6
+    add hl,de
+    ld  b,(hl)  ;file name length
+    ;inc b
+    ;dec b
+    ;ret z       ;This check is paranoia. The string compare would fail anyway.
+    inc hl
+    ld  de,OP6
+    ld  a,(de)
+    and a,varTypeMask   ;idk if groups would allow flags to be set.
+    inc de
+    cp  a,c     ;check if type matches
+    jr nz,handleFileLookup_fileNotMatch
+handleFileLookup_inlineStrCmp:
+    ld  a,(de)
+    cp  a,(hl)
+    jr  nz,handleFileLookup_fileNotMatch
+    inc hl
+    inc de
+    djnz handleFileLookup_inlineStrCmp
+    ; -- file matched. Verify file integrity
+handleFileLookup_checkFont:
+    mlt bc  ;Side effect on CE. Clears DEU. Actual value of DE irrelevant.
+    ld  c,(hl)
+    inc hl
+    ld  b,(hl)  ;Size
+    inc hl
+    push hl
+        ld  hl,(fontPackHeaderEnd-fontPackHeader)-1
+        or a,a
+        sbc hl,bc   ;expected-actual. Bad if no carry
+    pop hl
+    ret nc
+    ld  de,fontPackHeader
+    ld  b,fontPackHeaderEnd-fontPackHeader
+handleFileLookup_verifyHeader_loop:
+    ld  a,(de)
+    cp  a,(hl)
+    ret nz
+    inc hl
+    inc de
+    djnz handleFileLookup_verifyHeader_loop
+    ; -- File header verified
+    inc hl
+    inc hl
+    inc hl  ;skip distance to font data
+    ld  de,(hl) ;get distance to font hook
+    add hl,de
+    call _SetLocalizeHook ;install hook at HL
+errCode_OK:
+    ld  a,ERR_OK
+    jr  errorSys
+errCode_Fail:
+    ld  a,ERR_FAIL
+errorSys:
+    call _SetxxOP1
+    jp   _StoAns
+    
+handleFileLookup_fileNotMatch:
+    inc hl  ;exhaust remaining name field
+    djnz handleFileLookup_fileNotMatch
+    mlt bc  ;Side effect on CE. Clears BCU. Actual value of BC irrelevant.
+    ld  c,(hl)
+    inc hl
+    ld  b,(hl)
+    add hl,bc
+    jr  handleFileLookup_groupLoop
 
-;-----------------------------------------------------------------------------
-; Top-level loader
-; Out: Carry set on failure, reset on success.
 
-installFromStr0:
-	call fetchInputString
-	ret c
-	call parsePath
-	ret c
-	ld  a,(pathHasSlash)
-	or  a,a
-	jr  z,installFromStr0_notGroupPath
-	call locateFontInGroupPath
-	ret c
-	jp  _SetLocalizeHook
-installFromStr0_notGroupPath:
-	call locateStandaloneFont
-	ret c
-	jp  _SetLocalizeHook
+;in: HL=destination pointer, DE=string pointer
+;out: HL=HL+1, DE is at start of name portion of string.
+writeObjectType:
+    ld  a,(de)
+    cp  a,AppVarObj
+    ld  a,ProtProgObj
+    jr  nz,writeObjectType_continue
+    ld  a,AppVarObj
+    inc de
+writeObjectType_continue:
+    ld  (hl),a
+    inc hl
+    ret
 
-;-----------------------------------------------------------------------------
-; Input parsing
-
-; Reads Str0 and stores pointer/length.
-; Out: Carry set on failure.
-fetchInputString:
-	ld  hl,str0
-	call _Mov9ToOP1
-	call _FindSym
-	scf
-	ret c
-	call _ChkInRam
-	scf
-	ret nz
-	mlt bc
-	ex  de,hl
-	ld  c,(hl)
-	inc hl
-	ld  b,(hl)
-	inc hl
-	ld  a,b
-	or  a,c
-	scf
-	ret z
-	ld  (strDataPtr),hl
-	ld  (strDataLen),bc
-	or  a,a
-	ret
-
-; Splits string around '/' token if present.
-; Out: Carry set if malformed (e.g. empty segment around '/').
-parsePath:
-	ld  hl,(strDataPtr)
-	ld  bc,(strDataLen)
-	ld  (seg1Ptr),hl
-	ld  (seg1Len),bc
-	xor a,a
-	ld  (pathHasSlash),a
-	ld  de,0
-parsePath_loop:
-	ld  a,b
-	or  a,c
-	jr  z,parsePath_noSlash
-	ld  a,(hl)
-	cp  a,tDiv
-	jr  z,parsePath_foundSlash
-	inc hl
-	inc de
-	dec bc
-	jr  parsePath_loop
-parsePath_noSlash:
-	or  a,a
-	ret
-parsePath_foundSlash:
-	ld  a,d
-	or  a,e
-	scf
-	ret z
-	dec bc
-	ld  a,b
-	or  a,c
-	scf
-	ret z
-	ld  (seg1Len),de
-	inc hl
-	ld  (seg2Ptr),hl
-	ld  (seg2Len),bc
-	ld  a,1
-	ld  (pathHasSlash),a
-	or  a,a
-	ret
-
-;-----------------------------------------------------------------------------
-; Standalone lookup path (program/appvar)
-
-; Out: HL = hook location, Carry set on failure.
-locateStandaloneFont:
-	ld  hl,(seg1Ptr)
-	ld  bc,(seg1Len)
-	call resolveTypePrefix
-	ret c
-	ld  (wantedType),a
-	call makeOP1FromName
-	call getOp1NameLength
-	ld  a,b
-	ld  (wantedNameLen),a
-	call _ChkFindSym
-	scf
-	ret c
-	call getVarDataStart
-	jp  getHookLocation
-
-;-----------------------------------------------------------------------------
-; Group lookup path (GROUP/FONT)
-
-; Out: HL = hook location, Carry set on failure.
-locateFontInGroupPath:
-	; Build target child object name from second segment.
-	ld  hl,(seg2Ptr)
-	ld  bc,(seg2Len)
-	call resolveTypePrefix
-	ret c
-	ld  (wantedType),a
-	call makeOP1FromName
-	call getOp1NameLength
-	ld  a,b
-	ld  (wantedNameLen),a
-
-	; Find group object from first segment.
-	ld  hl,(seg1Ptr)
-	ld  bc,(seg1Len)
-	ld  a,GroupObj
-	call makeOP1FromName
-	call _ChkFindSym
-	scf
-	ret c
-	call getVarDataStart
-	ex  de,hl
-
-	; Group layout handling:
-	; [groupNameLen][groupName...][groupDataSize(2)][member0...]
-	ld  c,(hl)
-	ld  b,0
-	inc hl
-	add hl,bc
-	ld  c,(hl)
-	inc hl
-	ld  b,(hl)
-	inc hl
-	push hl
-		add hl,bc
-		ld  (groupEOFPtr),hl
-	pop hl
-
-locateFontInGroupPath_loop:
-	push hl
-		ld  de,(groupEOFPtr)
-		or  a,a
-		sbc hl,de
-	pop hl
-	jr  nc,locateFontInGroupPath_fail
-
-	ld  a,(hl)
-	and a,$1F
-	ld  d,a
-	ld  bc,6
-	add hl,bc
-	ld  (memberNamePtr),hl
-	ld  c,(hl)
-	inc hl
-	add hl,bc
-	ld  c,(hl)
-	inc hl
-	ld  b,(hl)
-	inc hl
-	ld  (memberDataPtr),hl
-	push hl
-		add hl,bc
-		ld  (memberNextPtr),hl
-	pop hl
-
-	ld  a,(wantedType)
-	cp  a,d
-	jr  nz,locateFontInGroupPath_next
-
-	ld  hl,(memberNamePtr)
-	ld  a,(hl)
-	ld  d,a
-	ld  a,(wantedNameLen)
-	cp  a,d
-	jr  nz,locateFontInGroupPath_next
-
-	inc hl
-	ld  de,OP1+1
-locateFontInGroupPath_nameCmpLoop:
-	ld  a,d
-	or  a,a
-	jr  z,locateFontInGroupPath_nameMatch
-	ld  a,(de)
-	cp  a,(hl)
-	jr  nz,locateFontInGroupPath_next
-	inc de
-	inc hl
-	dec d
-	jr  locateFontInGroupPath_nameCmpLoop
-
-locateFontInGroupPath_nameMatch:
-	ld  de,(memberDataPtr)
-	jp  getHookLocation
-
-locateFontInGroupPath_next:
-	ld  hl,(memberNextPtr)
-	jr  locateFontInGroupPath_loop
-
-locateFontInGroupPath_fail:
-	scf
-	ret
-
-;-----------------------------------------------------------------------------
-; Name/type helpers
-
-; In: HL=name start, BC=name length (token string segment)
-; Out: A=ProtProgObj or AppVarObj, HL/BC adjusted to name body
-;      Carry set if invalid input.
-resolveTypePrefix:
-	ld  a,b
-	or  a,c
-	scf
-	ret z
-	ld  a,(hl)
-	cp  a,AppVarObj
-	jr  nz,resolveTypePrefix_program
-	dec bc
-	inc hl
-	ld  a,b
-	or  a,c
-	scf
-	ret z
-	ld  a,AppVarObj
-	or  a,a
-	ret
-resolveTypePrefix_program:
-	ld  a,ProtProgObj
-	or  a,a
-	ret
-
-; In: A=type, HL=name ptr, BC=token string length
-; Out: OP1 prepared for _ChkFindSym, name converted/token-decoded.
-makeOP1FromName:
-	ld  (OP1),a
-	ld  de,OP1+1
-	jp  copyNameToOP1
-
-; Out: B = string length of OP1+1, clamped to 31.
-getOp1NameLength:
-	ld  hl,OP1+1
-	ld  b,0
-getOp1NameLength_loop:
-	ld  a,b
-	cp  a,31
-	ret z
-	ld  a,(hl)
-	or  a,a
-	ret z
-	inc hl
-	inc b
-	jr  getOp1NameLength_loop
-
-; Used to copy token string to OP1 for _ChkFindSym.
-; In: DE=destination, HL=source, BC=size of source token string
-copyNameToOP1:
-	ld  a,c
-	and a,$1F
-	ld  b,a
-copyNameToOP1_loop:
-	ld  a,b
-	or  a,a
-	jr  z,copyNameToOP1_term
-	ld  a,(hl)
-	inc hl
-	cp  a,t2ByteTok
-	jr  nz,copyNameToOP1_copy
-	ld  a,(hl)
-	inc hl
-	dec b
-	cp  a,t2ByteTok
-	jr  c,$+3
-	dec a
-	sub a,tLa-'a'
-copyNameToOP1_copy:
-	ld  (de),a
-	inc de
-	djnz copyNameToOP1_loop
-copyNameToOP1_term:
-	xor a,a
-	ld  (de),a
-	ret
-
-;-----------------------------------------------------------------------------
-; Variable access helpers
-
-; In: successful _ChkFindSym result context.
-; Out: DE=pointer to start of variable data.
-getVarDataStart:
-	call _ChkInRam
-	ex  de,hl
-	jr  z,getVarDataStart_inRam
-	ld  de,9
-	ld  e,(hl)
-	inc hl
-	add hl,de
-getVarDataStart_inRam:
-	mlt de
-	ld  e,(hl)
-	inc hl
-	ld  d,(hl)
-	inc hl
-	ex  de,hl
-	ret
-
-; In: DE = pointer to start of variable data.
-; Out: HL = pointer to hook section if valid font.
-;      Carry set on invalid/malformed font object.
-getHookLocation:
-	ex  de,hl
-	ld  de,fontPackHeader
-	call strcmp
-	ret c
-	inc hl
-	inc hl
-	inc hl
-	ld  bc,(hl)
-	add hl,bc
-	or  a,a
-	ret
-
-; In: HL=str1, DE=str2
-; Out: Carry set if not equal, reset if equal.
-strcmp:
-	ld  a,(de)
-	cp  a,(hl)
-	inc de
-	inc hl
-	jr  nz,strcmp_notEqual
-	or  a,a
-	ret z
-	jr  strcmp
-strcmp_notEqual:
-	scf
-	ret
-
-;-----------------------------------------------------------------------------
-; Constants
 
 str0:
 .db StrngObj, tVarStrng, tStr0, 0, 0
 
 fontPackHeader:
 .db tExtTok,tAsm84CeCmp,$18,$0C,"FNTPK",0
+fontPackHeaderEnd:
 
 .echo "Executable size: ", ($-programStart), " bytes"
 .end
-
-
-
-
-
-
-
-
-
-
-
+.end
