@@ -7,9 +7,9 @@ Section          Base   Top    High   Length
 .init.reruncheck D1A944 D1A944             0h
 .init            D1A944 D1A970            2Ch
 .fini            D1A970 D1A9A4            34h
-.text            D1A9A4 D1B47E           ADAh
-.data            D1B47E D1B484             6h
-.rodata          D1B484 D1B687           203h
+.text            D1A9A4 D1B484           AE0h
+.data            D1B484 D1B48A             6h
+.rodata          D1B48A D1B68D           203h
 .init_array      000000 000000             0h
 .ctors           000000 000000             0h
 .dtors           000000 000000             0h
@@ -39,10 +39,10 @@ __setflag                 = 000218
 __ultof                   = 000280
 _os_DisableHomeTextBuffer = D1A9ED
 _os_EnableHomeTextBuffer  = D1A9FF
-.missingappvar            = D1B484
-.libloadname              = D1B489
+.missingappvar            = D1B48A
+.libloadname              = D1B48F
 .libloadnamelen           = 000007
-.webaddress               = D1B491
+.webaddress               = D1B497
 __start                   = D1A944
 ___exithl                 = D1A970
 skip._exit                = D1A970
@@ -58,56 +58,56 @@ _printName                = D1AE5F
 _drawTestArea             = D1AE8E
 _printStr                 = D1B15C
 _printChr                 = D1B1C6
-_appstate                 = D1B47E
+_appstate                 = D1B484
 _fontvars                 = D052C6
 _varindexbyfiletype       = D05BBE
-_.str                     = D1B4A6
-_.str.1                   = D1B4B7
-_.str.2                   = D1B4C0
-_.str.3                   = D1B4C9
-_.str.4                   = D1B4CF
-_.str.5                   = D1B4D5
-_.str.6                   = D1B4DA
-_.str.7                   = D1B4DF
-_.str.8                   = D1B4E4
-_.str.9                   = D1B4E9
-_.str.10                  = D1B4EC
-_.str.11                  = D1B4F1
-_.str.12                  = D1B500
-_.str.13                  = D1B50E
-_.str.14                  = D1B518
-_.str.15                  = D1B527
-_.str.16                  = D1B53C
-_.str.17                  = D1B547
-_.str.18                  = D1B57B
-_.str.19                  = D1B58F
-_.str.20                  = D1B5A3
-_.str.21                  = D1B5A8
-_.str.22                  = D1B5BC
-_.str.23                  = D1B5D0
-_.str.24                  = D1B5D5
-_.str.25                  = D1B5E5
-_.str.26                  = D1B5F3
-_.str.27                  = D1B5FB
-_.str.28                  = D1B60B
-_.str.29                  = D1B619
-_.str.30                  = D1B621
-_.str.31                  = D1B631
-_.str.32                  = D1B640
-_.str.33                  = D1B64E
-_.str.34                  = D1B65E
-_.str.35                  = D1B66D
-_switch.table.drawBuffer  = D1B67B
+_.str                     = D1B4AC
+_.str.1                   = D1B4BD
+_.str.2                   = D1B4C6
+_.str.3                   = D1B4CF
+_.str.4                   = D1B4D5
+_.str.5                   = D1B4DB
+_.str.6                   = D1B4E0
+_.str.7                   = D1B4E5
+_.str.8                   = D1B4EA
+_.str.9                   = D1B4EF
+_.str.10                  = D1B4F2
+_.str.11                  = D1B4F7
+_.str.12                  = D1B506
+_.str.13                  = D1B514
+_.str.14                  = D1B51E
+_.str.15                  = D1B52D
+_.str.16                  = D1B542
+_.str.17                  = D1B54D
+_.str.18                  = D1B581
+_.str.19                  = D1B595
+_.str.20                  = D1B5A9
+_.str.21                  = D1B5AE
+_.str.22                  = D1B5C2
+_.str.23                  = D1B5D6
+_.str.24                  = D1B5DB
+_.str.25                  = D1B5EB
+_.str.26                  = D1B5F9
+_.str.27                  = D1B601
+_.str.28                  = D1B611
+_.str.29                  = D1B61F
+_.str.30                  = D1B627
+_.str.31                  = D1B637
+_.str.32                  = D1B646
+_.str.33                  = D1B654
+_.str.34                  = D1B664
+_.str.35                  = D1B673
+_switch.table.drawBuffer  = D1B681
 _gatherFiles              = D1B202
 traverseVat               = D1B304
 strcmp                    = D1B31E
 getHookLocation           = D1B32A
 _isInstalled              = D1B33B
 isInstalled_internal      = D1B342
-_installHook2             = D1B361
-_uninstallHook2           = D1B374
-_fontpackHeader           = D1B382
-_drawGlyph                = D1B38C
+_installHook2             = D1B364
+_uninstallHook2           = D1B377
+_fontpackHeader           = D1B385
+_drawGlyph                = D1B38F
 lib.LibLoad               = D1A8F3
 _#gfx_Begin               = D1A906
 _#gfx_End                 = D1A90A

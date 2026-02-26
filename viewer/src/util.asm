@@ -8,7 +8,7 @@ _LoadPattern      EQU $021164 ;''
 _FindAlphaDn      EQU $020E90 ;''
 _FindAlphaUp      EQU $020E8C ;''
 _ChkFindSym       EQU $02050C ;''
-_ChkInRam         EQU $021F98 ;'' In: DE=adr. Out: NC if in RAM, C if in arc.
+_ChkInRam         EQU $021F98 ;'' In: DE=adr. Out: Z if in RAM, NZ if in arc. Registers intact.
 _PopRealO1        EQU $0205DC ;''
 _PopRealO2        EQU $0205D8 ;''
 _PopRealO4        EQU $0205D0 ;''
@@ -113,8 +113,8 @@ gatherFiles_detecting:
     ld  de,(ix-7)   ;puts "page" byte in DEU
     ld  e,(ix-3)    ;and construct the rest of DE because who the hell writes a
     ld  d,(ix-4)    ;pointer BACKWARDS without direct access to its upper byte?
-    call _ChkInRam
-    jr  nc,gatherFiles_detectLoop   ;If in RAM, iterate. We don't do RAM objects.
+    call _ChkInRam  ;Z in RAM, NZ if archive. Destroys: None.
+    jr  z,gatherFiles_detectLoop   ;If in RAM, iterate. We don't do RAM objects.
     ld  a,b
     cp  a,GroupObj
     jr  z,gatherFiles_actOnGroup
@@ -360,7 +360,10 @@ isInstalled_internal:
     ret z           ;If not installed, return false.
     ld  hl,(localizeHookPtr)
     sbc hl,de
-    ret nz  ;Returns false for this hook not installed.
+    jr  z,isInstalled_match
+    xor a,a ;prevent carry from leaking out.
+    ret     ;Returns false for this hook not installed.
+isInstalled_match:
     inc a
     ret     ;Returns true for this hook installed.
 
@@ -384,7 +387,7 @@ _installHook2:
     or  a,a
     ret nz  ;If already installed, do not install again.
     ex  de,hl   ;HL=start of hook section
-    jp  _SetLocalizeHook
+    jp  _SetLocalizeHook    ;known not to clobber IX
 
 ;-----------------------------------------------------------------------------
 ;void uninstallHook2(void);
@@ -396,7 +399,7 @@ _uninstallHook2:
     ld  iy,flags
     bit 1,(iy+$35)  ;Check flags to see if hook is installed.
     ret z           ;If not installed, nothing to uninstall.
-    jp  _ClrLocalizeHook
+    jp  _ClrLocalizeHook    ;known not to clobber IX
 
 
 ;-----------------------------------------------------------------------------
@@ -443,7 +446,7 @@ db $EF,$7B,$18,$0C,"FNTPK",0
 
 section .text
 
-dgoffset        EQU 12
+dgoffset        EQU 15
 fontdatastart   = 3+dgoffset
 fonttype        = 6+dgoffset
 glyphindex      = 9+dgoffset
@@ -457,6 +460,8 @@ _drawGlyph:
     ld  a,(iy+$35)  ;Preserve hooks relevant to font rendering.
     push af
     ld  (iy+$35),0  ;Temporarily kill those hooks.
+    ld  a,(iy+$32)
+    push af
     ld  hl,(fontHookPtr)
     push hl
     ld  hl,(localizeHookPtr)
@@ -467,9 +472,7 @@ _drawGlyph:
     push hl
     pop ix
     ;---
-    or  a,a
-    sbc hl,hl   ;ensure HLU is cleared
-    ex  de,hl
+    ex.s de,hl  ;known way on the CE to clear HLU and DEU.
     ld  e,(ix+xcoord+0)
     ld  d,(ix+xcoord+1)     ;x pos is up to 2 bytes (0-320)
     ld  L,(ix+ycoord+0)     ;y pos is just one byte (0-240). We can cast like this.
@@ -482,9 +485,7 @@ _drawGlyph:
     push hl
         ld  hl,(ix+fontdatastart)   ;Pointer to start of font data
         call getHookLocation
-        push ix
-            call _SetLocalizeHook ;temporarily install this hook. _LoadPattern uses this.
-        pop ix
+        call _SetLocalizeHook ;temporarily install this hook. _LoadPattern uses this.
         ld  a,(ix+fonttype) ;0=large,1=small
         ld  c,4     ;bit 2 is set here. Use this as our primary mask
         sub a,1     ;carry if large
@@ -606,6 +607,8 @@ drawGlyph_end:
     ld (localizeHookPtr),hl
     pop hl
     ld (fontHookPtr),hl
+    pop af
+    ld  (flags+$32),a
     pop af
     ld  (flags+$35),a
     pop ix
