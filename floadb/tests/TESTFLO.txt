@@ -38,7 +38,7 @@ Pause
 ClrHome
 Disp "T2: LOAD COMICSAN"
 Disp "Exp: 0"
-"ComicSan"->Str0
+"rowSwap(ComicSan"->Str0
 Asm(prgmFLOADB
 Ans->E
 P+1->P

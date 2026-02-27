@@ -66,14 +66,19 @@ End
 
 Test Program
 ------------
-An ASCII-only tester is provided at `tests/TESTFLO.txt`.
+An ASCII-only tester is provided at `tests/TESTFLO.txt`. For convenience, the
+following binaries are also supplied:
+* The compiled tester `tests/TESTFLO.8xp`
+* The AppVar font file `tests/ComicSan.8xp`
+* A group file `tests/FONTGRPT.8xg` containing the font programs `ARIAL`, `COMICSAN`, and `OPENSANS`
 
-It checks:
+The tester checks:
 * Missing font error path
 * AppVar install (`ComicSan`)
 * Group member installs (`FONTGRPT/ARIAL`, `FONTGRPT/OPENSANS`)
 * Empty `Str0` uninstall path
 * Missing group member error path
+* Font uninstall
 
 Expected Return Codes in Tests
 ------------------------------
