@@ -201,6 +201,7 @@ handleFileLookup_fileNotMatch:
     ld  c,(hl)
     inc hl
     ld  b,(hl)
+    inc hl
     add hl,bc
     jr  handleFileLookup_groupLoop
 
