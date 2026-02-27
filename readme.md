@@ -106,6 +106,13 @@ The viewer is pre-built, but to rebuild it:
 2. Navigate to the `viewer` folder.
 3. Run `make` to build FONTVIEW.8xp.
 
+BASIC Utilities
+---------------
+This repo also includes BASIC-callable assembly helper programs:
+
+* `floadb` - Font loader utility for BASIC programs. See `floadb/readme.md`.
+* `feditb` - Font glyph read/write utility for BASIC programs. See `feditb/readme.md`.
+
 TODO
 ----
 

@@ -43,6 +43,7 @@ programStart:
     ; -- Locate string
     ld hl,errCode_Fail
     push hl     ;default action: fail. So many fail points. Cheaper to go to it.
+    ;jp $ ;debugging halt
     ld  hl,str0
     call _Mov9ToOP1
     call _FindSym
@@ -155,12 +156,12 @@ handleFileLookup_inlineStrCmp:
     inc de
     djnz handleFileLookup_inlineStrCmp
     ; -- file matched. Verify file integrity
-handleFileLookup_checkFont:
     mlt bc  ;Side effect on CE. Clears DEU. Actual value of DE irrelevant.
     ld  c,(hl)
     inc hl
     ld  b,(hl)  ;Size
     inc hl
+handleFileLookup_checkFont:
     push hl
         ld  hl,(fontPackHeaderEnd-fontPackHeader)-1
         or a,a
@@ -184,6 +185,7 @@ handleFileLookup_verifyHeader_loop:
     add hl,de
     call _SetLocalizeHook ;install hook at HL
 errCode_OK:
+    pop hl  ;remove errCode_Fail from the stack. We are done. Return success.
     ld  a,ERR_OK
     jr  errorSys
 errCode_Fail:
