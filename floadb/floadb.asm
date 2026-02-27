@@ -1,7 +1,8 @@
 ;Font Loader for TI-84 Plus CE BASIC programs
 ;
 ;Input: 
-;   Str0 = name of the font file to load
+;   Str0 = Name of the font file to load
+;   NOTE: If Str0 is empty, the currently installed font will be uninstalled.
 ;
 ;Output: 
 ;   Ans=0 if font successfully installed
@@ -52,7 +53,11 @@ programStart:
     cp  a,MAX_STRING_SIZE+1 ;actual-maxexpected. Must be carry.
     ret nc      ;Str0 must be within max size.
     or  a,a
-    ret z       ;Str0 must not be empty.
+    jr  nz,handleFont_continueStringLoad
+    ; -- String is empty. Re-use this condition to uninstall a font. 
+    call _ClrLocalizeHook
+    jp errCode_OK
+handleFont_continueStringLoad:
     ld  b,a     ;store LSB for loop counter.
     inc de      ;Do not check for MSB of string length. Even if it is nonzero
     inc de      ;we will never read that far. A nonzero MSB sounds like a user problem.
