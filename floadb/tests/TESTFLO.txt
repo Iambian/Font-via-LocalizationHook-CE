@@ -1,0 +1,165 @@
+PROGRAM:TESTFLO
+ClrHome
+0->P
+0->F
+Disp "=FLOADB TESTER="
+Disp "Targets:"
+Disp "ComicSan"
+Disp "FONTGRPT/ARIAL"
+Disp "FONTGRPT/OPENSANS"
+Pause 
+
+"====================
+"T1: Font not found
+"Exp: 1
+"====================
+ClrHome
+Disp "T1: FONT NOT FOUND"
+Disp "Exp: 1"
+"NOTFOUND"->Str0
+Asm(prgmFLOADB
+Ans->E
+P+1->P
+If E=1
+Then
+	Disp "T1: PASS"
+Else
+	F+1->F
+	Disp "T1: FAIL"
+	Disp E
+End
+Pause 
+
+"====================
+"T2: Load appvar font
+"ComicSan
+"Exp: 0
+"====================
+ClrHome
+Disp "T2: LOAD COMICSAN"
+Disp "Exp: 0"
+"rowSwap(ComicSan"->Str0
+Asm(prgmFLOADB
+Ans->E
+P+1->P
+If E=0
+Then
+	Disp "T2: PASS"
+	Disp "ComicSan active"
+	Disp "Sample: ABC abc 123"
+Else
+	F+1->F
+	Disp "T2: FAIL"
+	Disp E
+End
+Pause 
+
+"====================
+"T3: Load group font
+"FONTGRPT/ARIAL
+"Exp: 0
+"====================
+ClrHome
+Disp "T3: LOAD ARIAL"
+Disp "Exp: 0"
+"FONTGRPT/ARIAL"->Str0
+Asm(prgmFLOADB
+Ans->E
+P+1->P
+If E=0
+Then
+	Disp "T3: PASS"
+	Disp "ARIAL active"
+	Disp "Sample: ABC abc 123"
+Else
+	F+1->F
+	Disp "T3: FAIL"
+	Disp E
+End
+Pause 
+
+"====================
+"T4: Load group font
+"FONTGRPT/OPENSANS
+"Exp: 0
+"====================
+ClrHome
+Disp "T4: LOAD OPENSANS"
+Disp "Exp: 0"
+"FONTGRPT/OPENSANS"->Str0
+Asm(prgmFLOADB
+Ans->E
+P+1->P
+If E=0
+Then
+	Disp "T4: PASS"
+	Disp "OPENSANS active"
+	Disp "Sample: ABC abc 123"
+Else
+	F+1->F
+	Disp "T4: FAIL"
+	Disp E
+End
+Pause 
+
+"====================
+"T5: Empty Str0 should
+"uninstall font
+"Exp: 0
+"====================
+ClrHome
+Disp "T5: EMPTY UNINSTALL"
+Disp "Exp: 0"
+""->Str0
+Asm(prgmFLOADB
+Ans->E
+P+1->P
+If E=0
+Then
+	Disp "T5: PASS"
+	Disp "Font uninstalled"
+	Disp "Sample: ABC abc 123"
+Else
+	F+1->F
+	Disp "T5: FAIL"
+	Disp E
+End
+Pause 
+
+"====================
+"T6: Missing member in
+"valid group name
+"Exp: 1
+"====================
+ClrHome
+Disp "T6: BAD MEMBER"
+Disp "Exp: 1"
+"FONTGRPT/NOTTHERE"->Str0
+Asm(prgmFLOADB
+Ans->E
+P+1->P
+If E=1
+Then
+	Disp "T6: PASS"
+Else
+	F+1->F
+	Disp "T6: FAIL"
+	Disp E
+End
+Pause 
+
+"====================
+"RESULTS
+"====================
+ClrHome
+Disp "====RESULTS===="
+Disp "Tests attempted:"
+Disp P
+Disp "Failures:"
+Disp F
+If F=0
+Then
+	Disp "ALL TESTS PASSED"
+Else
+	Disp "SOME TESTS FAILED"
+End
