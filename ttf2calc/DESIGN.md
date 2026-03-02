@@ -2,106 +2,123 @@
 
 ## UI Mockup
 ```
-----------------------------
-|(1) [Foldername][fontname]|
-||------------| |-------|  |
-||Canvas area | |  (3)  |  |
-||16x16 grid  | |-------|  |
-||zoomable,   |            |
-||pannable (2)|    (5)     |
-||------------|            |
-|          (4)             |
----------------------------- 
+---------------------------------------
+||------------| [L][S][Project name]  |
+||            |       |-------|       |
+||Font Canvas |       |Preview|       |
+||            |       |-------|       |
+||            |    [Encodings: v]     |
+||Zoomable    |  View:[Large][Small]  |
+||Pannable    |-----------------------|
+||Selectable  |[_][Fontpath][Fontname]|
+||            |[Fontsize][Aliasing: v]|
+||            |-----------------------|
+||            | [Output Target: v]    |
+||            | [Output basename]     |
+||------------|       [EXPORT]        |
+---------------------------------------
 ```
+## UI Specification
 
-1.  A small folder button goes here. It brings up a browse folder
-    interface. The foldername is the full path of the folder selected.
-    The default value of this is the examples folder in the overall
-    project's root directory.
-    Add persistence to keep this where it is. The fontname is a drop-down
-    containing a list of all found .ttf files in that folder. All of these
-    should be on the same row.
-    On the row below it should be a checkbox indicating whether or not to
-    use the system fonts. If it is checked, the foldername will be replaced
-    by the path to the system's font folder, wherever that may be.
-    Unchecking this box should revert foldername to it last known value.
-    This checkbox is not checked by default.
+-   Font Canvas: Displays the current FontData object's glyph array image.
+    This image is zoomable using the mouse wheel. Minimum zoom is x1, maximum
+    zoom is x8. Panning is done via dragging with the left mouse button.
+    Selecting is done via left click. Selections overlay a red box based on
+    the font variant, and the underlying image's position and zoom level.
+-   Project name is the full path and name of this project. Default location is
+    in the `projects` folder inside this one. Create it if it doesn't exist.
+    Add a load button and a save button. Default project name is "UNTITLED".
+    Recognized extension is ".cefont". Internally, this is a JSON file.
+-   Preview: A preview designed to show the currently selected glyph
+    at x8 zoom.
+-   Encodings: A drop-down populated by the contents of `src\encodings.json`.
+-   View: Two buttons "Large" and "Small". Pressing one will keep it pressed
+    while unpressing the other. The section below this maps to one or the other.
+-   Fontpath/Fontname: Path and name, separate. Add a folder button to allow
+    filesystem navigation. Default value is `../fonts` and `OpenSans.ttf`.
+-   Fontsize: In points. Large font default is 12, small font default is 11.
+-   Aliasing: A drop-down containing bi-level rendering algorithms.
+    This list should contain at least these:
+    -   Direct 1-Bit
+    -   Hinted 1-Bit
+    -   Downsampling
+    -   Thresholding
+-   Output target: Affects what the this application will export. Allows
+    export to "Standalone (8xp)", "Viewer Only (8xv)", "Standalone (C)"
+    and "Viewer Only (C)". Other modes may be added as needed.
+-   Output basename: Limit 8 characters, no extension. The default value is
+    the same as 
+-   Export button: Performs the export process using the large and small font
+    datasets that have been loaded. Export will be specified in a separate document.
 
-2.  The canvas area should show a scrollable, zoomable, and pannable grid of
-    squares representing the pixels of the font with a gray border around
-    but not including the pixels. If the small font checkbox is checked,
-    the dimensions of each grid field should be 12x16 pixels. If the box
-    is unchecked, the dimensions should be 14x12 pixels. The grid is arranged
-    in a 16x16 square, with the top left square representing the first codepoint
-    with respect to the calculator's font encoding (0x00), the top right square 
-    representing codepoint 0x0F, the bottom left square representing codepoint
-    0xF0, and the bottom right square representing codepoint 0xFF.
-    What will actually populate these squares will depend on which encoding 
-    the user chooses, which font they picked, and whether or not the small font 
-    checkbox is checked. 
-    All font entries will be drawn in black and white. Any antialiasing is
-    disabled. The user can left click on a square to select it, which will
-    highlight it with a red border. The right mouse button is used to
-    pan the canvas area. The mouse wheel is used to zoom in and out.
-    The placement of each glyph is to be vertically-centered left aligned
-    inside the square as best as possible. Placement must be deterministic
-    since the user will also be able to select a square and use the arrow keys
-    to nudge the glyph up, down, left, or right.
-    If any part of the glyph would appear outside of the square, it should be
-    clipped to the square.
-    Care must be taken to render these accurately; this canvas is authoritative
-    with regards to the font's appearance on the calculator and will be
-    used during the export process to generate the font file.
+## Data Specification
 
-3.  A zoomed-in view of the currently selected square. The box itself should
-    be large enough to accomodate the largest possible dimensions of any font
-    entry (14x16) plus a small border of the appropriate dimensions. The zoom
-    factor of this shall be 8.
+-   AppState: All data-carrying UI elements update this. This tracks:
+    -   Name and location of this project
+    -   Which encoding is being used
+    -   Which font variant is being viewed (large or small)
+        -   Name and location of this font variant
+        -   Size (in points) of this font variant
+        -   Aliasing algorithm of this font variant
+        -   Nudging data for this font variant
+    -   Currently selected glyph
+    -   Current output target
+    -   Current output basename
+    -   Current FontData instance
+    -   Cached FontData instances
+    -   Font canvas view transform
+        -   Scale
+        -   pan_x
+        -   pan_y
+    Any time an input that would change FontData identity changes, the current
+    FontData object is put into cache and a lookup attempt on the cache is
+    made for the new input. If one is not found, a new FontData instance using
+    that data is generated.
 
-4.  Instructions for the user. This will contain instructions on how the
-    font canvas area is used. The area should be appropriately sized to
-    fit twice as many instructions as needed so additional instructions
-    can be added without changing the dimensions of the window.
 
-5.  This area is used for a number of things. It will contain:
-    -   The size of the input font, in points.
-    -   A checkbox for whether or not to use the small font. Unchecked by default.
-    -   A drop-down indicating the encoding to use. The default value is the
-        topmost entry in the list below. The list of encodings is as follows:
-        -   Alphanumeric characters only (ASCII mappings)
-        -   All ASCII characters (ASCII mappings)
-        -   The closest approximation of the TI-84 Plus CE character set.
-        -   Custom (user-defined mappings). This will use the json file labeled
-            "custom.json" in the same directory as the converter. The format
-            should be the same as the one used for other encodings, which is
-            an object/dict containing key-value pairs, where the key is a value
-            between 0x00 and 0xFF, where the value is a string containing a single
-            character. (e.g. {"0x41": "A", "0x42": "B"})
-        These encodings map the position of the calculator codepoint to
-        the closest matching codepoint in the font. Most of the time, these
-        will be the same, but for the extended set, Unicode must be used.
-        Bear in mind that codepoints 0x00-0x1F are also mapped to a displayable
-        character.
-    -   A checkbox indicating whether or not this font is self-installing.
-        If it is checked, the font object will include the installer stub
-        and its output filetype will be .8xp (protected program). If it is
-        not checked, the font object will not include the installer stub and
-        the output filetype will be .8xv (application variable).
-        This checkbox is checked by default.
-        Checking or unchecking this box will change the file name
-        in the input box below but only if the user has not manually changed the
-        file name. The font name is considered "changed" if  the file name does 
-        not case-insensitively match the default name of the font.
-    -   An input box indicating the file name that will appear on the
-        calculator. The default name of the font is the name of the font file
-        that was imported, subject to the same restrictions as the calculator.
-        The following filename restrictions:
-        -   No extensions
-        -   Must be 1-8 characters long
-        -   The first character must be an uppercase letter.
-        -   The remaining characters must be uppercase alphanumeric
-        If the self-installing checkbox is not checked (is an appvar),
-        the filename restriction is loosened to allow lowercase letters as well.
+-   FontData: Contains all the data needed by the UI to render and the data
+    needed by the export function to export the data. The identity of this
+    object is dictated by these hashable/immutable objects:
+    -   Encoding used (name only)
+    -   Name and location of both the large and small font variants
+    -   Size of both the large and small font variants
+    -   Aliasing algorithm of the large and small font variants
+    This object additionally tracks but does not own:
+    -   Nudging data for all mapped glyphs for the small and large font variants
+    This class generates the following using the above input:
+    -   Base image data for each glyph
+    -   Nudged image data for each glyph (optional/cached)
+    -   Ready-to-display 16x16 glyph grid 
+    When initialized with the parameters above, this class generates a base
+    image for each mapped glyph according to the bi-level algorithm specified.
+    This image is adjusted such that the glyph is vertically-centered and 
+    left-aligned. This step does not use nudging data.
+    The allowed space for each glyph is as follows:
+    -   Large font: 12 by 14 pixels
+    -   Small font: 16 by 12 pixels
+    Glyph data outside this space is cropped out.
+    After glyph image generation is done, a 16x16 glyph grid containing all
+    mapped glyphs is created with a 1 pixel wide gray border around each
+    cell in the grid. The upper-left cell represents glyph 0x00 and
+    the bottom-right cell represents glyph 0xFF. The contents of each cell is
+    adjusted by the per-glyph nudging data. This image is modified each time
+    nudging data is changed. The image retrieved depends on whether the large
+    or small font variant is being asked for.
+    During export, it is expected that the base image data for the
+    large and small font data is exposed for examination.
+
+-   Encodings: Read from `encodings.json`. Top-level object lists the names
+    of each encoding. The property of each encoding is an object containing
+    key-value pairs of all mapped codepoints. The key is the codepoint that
+    the TI-84 Plus CE uses while the value is the unicode character that
+    represents that codepoint.
+
+-   ProjectData: Contains the identity information and the nudging data
+    from the project's last known FontData class instance.
+
+
+
+
 
 ## Additional Notes
 

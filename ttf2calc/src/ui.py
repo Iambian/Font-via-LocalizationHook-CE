@@ -8,297 +8,280 @@ import json
 from pathlib import Path
 import re
 import tkinter as tk
-from tkinter import ttk
+from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 from .canvas import FontCanvas
-from .core import AppState
+from .core import AppState, ALIASING_MODES, OUTPUT_TARGETS
+
 
 class MainApplication(tk.Frame):
     def __init__(self, master=None, app_state: AppState = None):
         super().__init__(master)
         self.master = master
         self.app_state = app_state or AppState()
-
-        self.folder_path_var = tk.StringVar(value=self.app_state.font_path)
-        self.font_var = tk.StringVar(value=self.app_state.font_name)
-        self.use_system_fonts_var = tk.BooleanVar(value=self.app_state.use_system_fonts)
-        self.small_font_var = tk.BooleanVar(value=self.app_state.small_font)
-        self.encoding_var = tk.StringVar(value=self.app_state.encoding)
-        self.self_install_var = tk.BooleanVar(value=self.app_state.self_installing)
-        self.filename_var = tk.StringVar(value=self.app_state.calculator_filename)
-        self.font_size_var = tk.IntVar(value=self.app_state.font_size)
-        self._preview_tk_image = None
-
+        self.app_state.add_callback(self._on_state_change)
         self.pack(fill="both", expand=True)
-        self.app_state.subscribe(self.on_state_change)
-        self.bind("<Destroy>", self._on_destroy)
-        self.create_widgets()
 
-    def _get_encoding_names(self):
-        encodings_path = Path(__file__).with_name("encodings.json")
-        fallback = [
-            "Alphanumeric characters only",
-            "All ASCII characters",
-            "TI-84 Plus CE character set",
-            "Custom",
-        ]
+        self.project_path_var = tk.StringVar(value=str(self.app_state.project_path))
+        self.encoding_var = tk.StringVar(value=self.app_state.encoding_name)
+        self.font_path_var = tk.StringVar()
+        self.font_name_var = tk.StringVar()
+        self.font_size_var = tk.IntVar()
+        self.aliasing_var = tk.StringVar()
+        self.output_target_var = tk.StringVar(value=self.app_state.output_target)
+        self.output_basename_var = tk.StringVar(value=self.app_state.output_basename)
 
-        try:
-            with encodings_path.open("r", encoding="utf-8") as file_handle:
-                data = json.load(file_handle)
-            if isinstance(data, dict) and data:
-                names = [name for name in data.keys() if isinstance(name, str)]
-                if names:
-                    return names
-        except (FileNotFoundError, json.JSONDecodeError, OSError):
-            pass
+        self.preview_photo = None
 
-        return fallback
+        self._build_ui()
+        self._populate_variant_controls_from_state()
+        self._refresh_view_buttons()
+        self._refresh_preview()
 
-    def create_widgets(self):
-        encoding_names = self._get_encoding_names()
-        if self.app_state.encoding not in encoding_names:
-            self.app_state.set("encoding", encoding_names[0])
+    def _build_ui(self):
+        self.columnconfigure(0, weight=3)
+        self.columnconfigure(1, weight=2)
+        self.rowconfigure(0, weight=1)
 
-        # Top Bar (Folder and Font Selection)
-        top_frame = tk.Frame(self)
-        top_frame.pack(side="top", fill="x", padx=5, pady=5)
-        
-        self.btn_folder = tk.Button(top_frame, text="📁")
-        self.btn_folder.pack(side="left")
-        
-        self.lbl_folder_path = tk.Label(top_frame, textvariable=self.folder_path_var, relief="sunken", anchor="w")
-        self.lbl_folder_path.pack(side="left", fill="x", expand=True, padx=5)
-        
-        self.combo_font = ttk.Combobox(top_frame, textvariable=self.font_var, values=[self.app_state.font_name])
-        self.combo_font.pack(side="left", padx=5)
-        self.combo_font.bind("<<ComboboxSelected>>", self._on_font_changed)
-        self.combo_font.bind("<FocusOut>", self._on_font_changed)
-        
-        # System Fonts Checkbox Row
-        sys_font_frame = tk.Frame(self)
-        sys_font_frame.pack(side="top", fill="x", padx=5)
-        self.check_sys_fonts = tk.Checkbutton(
-            sys_font_frame,
-            text="Use system fonts",
-            variable=self.use_system_fonts_var,
-            command=self._on_use_system_fonts_changed,
-        )
-        self.check_sys_fonts.pack(side="left")
-
-        # Main Content Area
-        content_frame = tk.Frame(self)
-        content_frame.pack(side="top", fill="both", expand=True, padx=5, pady=5)
-
-        # Right: Preview and Controls
-        right_frame = tk.Frame(content_frame)
-        right_frame.pack(side="right", fill="y", padx=5)
-
-        # (3) Zoomed View
-        #NOTE: This code needs to be before the font canvas
-        self.preview_canvas = tk.Canvas(right_frame, width=112, height=128, bg="white", highlightthickness=1, highlightbackground="black")
-        self.preview_canvas.pack(side="top", pady=5)
-
-        # Left: Font Canvas
         self.canvas = FontCanvas(
-            content_frame,
+            self,
             app_state=self.app_state,
-            on_selection_change=self._on_canvas_selection_changed,
-            bg="white",
-            width=400,
-            height=400,
+            on_selection_change=self._on_canvas_selection_change,
+            bg="#202020",
+            highlightthickness=0,
         )
-        self.canvas.pack(side="left", fill="both", expand=True)
+        self.canvas.grid(row=0, column=0, sticky="nsew", padx=8, pady=8)
 
-        # (5) Controls
-        controls_frame = tk.Frame(right_frame)
-        controls_frame.pack(side="top", fill="x", pady=10)
+        panel = ttk.Frame(self)
+        panel.grid(row=0, column=1, sticky="nsew", padx=(0, 8), pady=8)
+        panel.columnconfigure(0, weight=1)
 
-        self.check_small_font = tk.Checkbutton(
-            controls_frame,
-            text="Small font",
-            variable=self.small_font_var,
-            command=self._on_small_font_changed,
-        )
-        self.check_small_font.pack(anchor="w")
+        self._build_project_row(panel)
+        self._build_preview_section(panel)
+        self._build_encoding_and_view(panel)
+        self._build_variant_section(panel)
+        self._build_output_section(panel)
 
-        tk.Label(controls_frame, text="Font size:").pack(anchor="w")
-        self.spin_font_size = tk.Spinbox(
-            controls_frame,
-            from_=1,
-            to=255,
-            textvariable=self.font_size_var,
-            width=8,
-            command=self._on_font_size_changed,
-        )
-        self.spin_font_size.pack(anchor="w", pady=(0, 5))
-        self.spin_font_size.bind("<Return>", self._on_font_size_changed)
-        self.spin_font_size.bind("<FocusOut>", self._on_font_size_changed)
+    def _build_project_row(self, parent):
+        frame = ttk.Frame(parent)
+        frame.grid(row=0, column=0, sticky="ew", pady=(0, 8))
+        frame.columnconfigure(2, weight=1)
 
-        tk.Label(controls_frame, text="Encoding:").pack(anchor="w")
-        self.combo_encoding = ttk.Combobox(
-            controls_frame,
-            values=encoding_names,
-            state="readonly",
+        ttk.Button(frame, text="L", width=3, command=self._load_project).grid(row=0, column=0, padx=(0, 4))
+        ttk.Button(frame, text="S", width=3, command=self._save_project).grid(row=0, column=1, padx=(0, 4))
+
+        self.project_entry = ttk.Entry(frame, textvariable=self.project_path_var)
+        self.project_entry.grid(row=0, column=2, sticky="ew")
+        self.project_entry.bind("<Return>", self._on_project_path_commit)
+        self.project_entry.bind("<FocusOut>", self._on_project_path_commit)
+
+    def _build_preview_section(self, parent):
+        preview_frame = ttk.LabelFrame(parent, text="Preview")
+        preview_frame.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        self.preview_label = ttk.Label(preview_frame)
+        self.preview_label.grid(row=0, column=0, padx=8, pady=8)
+
+    def _build_encoding_and_view(self, parent):
+        enc_frame = ttk.Frame(parent)
+        enc_frame.grid(row=2, column=0, sticky="ew", pady=(0, 8))
+        enc_frame.columnconfigure(1, weight=1)
+
+        ttk.Label(enc_frame, text="Encodings:").grid(row=0, column=0, sticky="w")
+        self.encoding_combo = ttk.Combobox(
+            enc_frame,
             textvariable=self.encoding_var,
+            values=self.app_state.get_encoding_names(),
+            state="readonly",
         )
-        self.combo_encoding.pack(fill="x", pady=(0, 5))
-        self.combo_encoding.bind("<<ComboboxSelected>>", self._on_encoding_changed)
+        self.encoding_combo.grid(row=0, column=1, sticky="ew")
+        self.encoding_combo.bind("<<ComboboxSelected>>", self._on_encoding_selected)
 
-        self.check_self_install = tk.Checkbutton(
-            controls_frame,
-            text="Self-installing",
-            variable=self.self_install_var,
-            command=self._on_self_install_changed,
+        view_row = ttk.Frame(parent)
+        view_row.grid(row=3, column=0, sticky="ew", pady=(0, 8))
+        ttk.Label(view_row, text="View:").pack(side="left", padx=(0, 6))
+        self.large_btn = ttk.Button(view_row, text="Large", command=lambda: self._set_view_variant("large"))
+        self.large_btn.pack(side="left", padx=(0, 4))
+        self.small_btn = ttk.Button(view_row, text="Small", command=lambda: self._set_view_variant("small"))
+        self.small_btn.pack(side="left")
+
+    def _build_variant_section(self, parent):
+        variant_frame = ttk.LabelFrame(parent, text="Font Variant")
+        variant_frame.grid(row=4, column=0, sticky="ew", pady=(0, 8))
+        variant_frame.columnconfigure(1, weight=1)
+        variant_frame.columnconfigure(2, weight=1)
+
+        ttk.Button(variant_frame, text="…", width=3, command=self._pick_font_folder).grid(row=0, column=0, padx=(0, 4), pady=4)
+
+        path_entry = ttk.Entry(variant_frame, textvariable=self.font_path_var)
+        path_entry.grid(row=0, column=1, sticky="ew", pady=4, padx=(0, 4))
+        path_entry.bind("<Return>", self._commit_variant_inputs)
+        path_entry.bind("<FocusOut>", self._commit_variant_inputs)
+
+        name_entry = ttk.Entry(variant_frame, textvariable=self.font_name_var)
+        name_entry.grid(row=0, column=2, sticky="ew", pady=4)
+        name_entry.bind("<Return>", self._commit_variant_inputs)
+        name_entry.bind("<FocusOut>", self._commit_variant_inputs)
+
+        size_row = ttk.Frame(variant_frame)
+        size_row.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0, 4))
+        size_row.columnconfigure(1, weight=1)
+
+        ttk.Label(size_row, text="Fontsize:").grid(row=0, column=0, sticky="w", padx=(0, 6))
+        self.size_spin = tk.Spinbox(size_row, from_=1, to=72, textvariable=self.font_size_var, width=6)
+        self.size_spin.grid(row=0, column=1, sticky="w", padx=(0, 8))
+        self.size_spin.bind("<Return>", self._commit_variant_inputs)
+        self.size_spin.bind("<FocusOut>", self._commit_variant_inputs)
+
+        ttk.Label(size_row, text="Aliasing:").grid(row=0, column=2, sticky="w", padx=(8, 6))
+        self.aliasing_combo = ttk.Combobox(
+            size_row,
+            textvariable=self.aliasing_var,
+            values=ALIASING_MODES,
+            state="readonly",
+            width=16,
         )
-        self.check_self_install.pack(anchor="w")
+        self.aliasing_combo.grid(row=0, column=3, sticky="ew")
+        self.aliasing_combo.bind("<<ComboboxSelected>>", self._commit_variant_inputs)
 
-        tk.Label(controls_frame, text="Calculator filename:").pack(anchor="w")
-        self.entry_filename = tk.Entry(controls_frame, textvariable=self.filename_var)
-        self.entry_filename.pack(fill="x")
-        self.entry_filename.bind("<KeyRelease>", self._on_filename_input)
-        self.entry_filename.bind("<FocusOut>", self._on_filename_changed)
-        self.entry_filename.bind("<Return>", self._on_filename_changed)
+    def _build_output_section(self, parent):
+        output_frame = ttk.LabelFrame(parent, text="Output")
+        output_frame.grid(row=5, column=0, sticky="ew")
+        output_frame.columnconfigure(0, weight=1)
 
-        self.btn_export = tk.Button(
-            controls_frame,
-            text="Export",
-            state="disabled",
-            command=self._on_export_clicked,
+        self.output_combo = ttk.Combobox(
+            output_frame,
+            textvariable=self.output_target_var,
+            values=OUTPUT_TARGETS,
+            state="readonly",
         )
-        self.btn_export.pack(fill="x", pady=(6, 0))
+        self.output_combo.grid(row=0, column=0, sticky="ew", padx=4, pady=(4, 4))
+        self.output_combo.bind("<<ComboboxSelected>>", self._on_output_target_selected)
 
-        # (4) Instructions
-        instructions_frame = tk.Frame(right_frame)
-        instructions_frame.pack(side="bottom", fill="both", expand=True, pady=10)
-        
-        instructions_text = (
-            "Left click to select a glyph.\n"
-            "Right click and drag to pan.\n"
-            "Mouse wheel to zoom.\n"
-            "Arrow keys to nudge selected glyph."
-        )
-        self.lbl_instructions = tk.Label(instructions_frame, text=instructions_text, justify="left", anchor="nw")
-        self.lbl_instructions.pack(fill="both", expand=True)
-        self._update_export_button_state()
+        self.output_entry = ttk.Entry(output_frame, textvariable=self.output_basename_var)
+        self.output_entry.grid(row=1, column=0, sticky="ew", padx=4, pady=(0, 4))
+        self.output_entry.bind("<Return>", self._on_output_basename_commit)
+        self.output_entry.bind("<FocusOut>", self._on_output_basename_commit)
 
-    def _on_canvas_selection_changed(self, _codepoint, glyph_img, cell_width, cell_height):
-        self.preview_canvas.delete("all")
+        ttk.Button(output_frame, text="EXPORT", command=self._on_export).grid(row=2, column=0, sticky="ew", padx=4, pady=(0, 6))
 
-        preview_width = int(self.preview_canvas.cget("width"))
-        preview_height = int(self.preview_canvas.cget("height"))
-        self.preview_canvas.create_rectangle(0, 0, preview_width, preview_height, fill="white", outline="")
+    def _on_state_change(self, _state):
+        self.project_path_var.set(str(self.app_state.project_path))
+        self.encoding_var.set(self.app_state.encoding_name)
+        self.output_target_var.set(self.app_state.output_target)
+        self.output_basename_var.set(self.app_state.output_basename)
+        self._populate_variant_controls_from_state()
+        self._refresh_view_buttons()
+        self._refresh_preview()
+        self.canvas.redraw()
 
-        if glyph_img is None:
-            self._preview_tk_image = None
-            self.preview_canvas.create_rectangle(
-                4,
-                4,
-                preview_width - 4,
-                preview_height - 4,
-                outline="#b0b0b0",
-                width=1,
-            )
-            return
+    def _populate_variant_controls_from_state(self):
+        variant = self.app_state.view_variant
+        current = self.app_state.variants[variant]
+        self.font_path_var.set(current["font_path"])
+        self.font_name_var.set(current["font_name"])
+        self.font_size_var.set(int(current["size"]))
+        self.aliasing_var.set(current["aliasing"])
 
-        zoom_factor = 8
-        display_img = glyph_img.convert("L").point(lambda value: 0 if value > 0 else 255).convert("1")
-        scaled_img = display_img.resize(
-            (
-                max(1, int(cell_width * zoom_factor)),
-                max(1, int(cell_height * zoom_factor)),
-            ),
-            Image.Resampling.NEAREST,
-        )
-
-        self._preview_tk_image = ImageTk.PhotoImage(scaled_img)
-        x = max(0, (preview_width - scaled_img.width) // 2)
-        y = max(0, (preview_height - scaled_img.height) // 2)
-        self.preview_canvas.create_image(x, y, anchor="nw", image=self._preview_tk_image)
-        self.preview_canvas.create_rectangle(
-            x,
-            y,
-            x + scaled_img.width,
-            y + scaled_img.height,
-            outline="#8a8a8a",
-            width=1,
-        )
-
-    def _on_destroy(self, event):
-        if event.widget is self:
-            self.app_state.unsubscribe(self.on_state_change)
-
-    def on_state_change(self, field_name, old_value, new_value, _state):
-        if field_name == "font_path":
-            self.folder_path_var.set(new_value)
-        elif field_name == "font_name":
-            self.font_var.set(new_value)
-        elif field_name == "font_size":
-            self.font_size_var.set(new_value)
-        elif field_name == "encoding":
-            self.encoding_var.set(new_value)
-        elif field_name == "small_font":
-            self.small_font_var.set(new_value)
-        elif field_name == "self_installing":
-            self.self_install_var.set(new_value)
-            self._update_export_button_state()
-        elif field_name == "use_system_fonts":
-            self.use_system_fonts_var.set(new_value)
-        elif field_name == "calculator_filename":
-            self.filename_var.set(new_value)
-            self._update_export_button_state()
-
-    def _on_use_system_fonts_changed(self):
-        self.app_state.set("use_system_fonts", self.use_system_fonts_var.get())
-
-    def _on_small_font_changed(self):
-        self.app_state.set("small_font", self.small_font_var.get())
-
-    def _on_font_size_changed(self, _event=None):
-        try:
-            self.app_state.set_font_size(self.font_size_var.get())
-        except (tk.TclError, ValueError):
-            self.font_size_var.set(self.app_state.font_size)
-
-    def _on_encoding_changed(self, _event=None):
-        self.app_state.set("encoding", self.encoding_var.get())
-
-    def _on_self_install_changed(self):
-        self.app_state.set("self_installing", self.self_install_var.get())
-        self._update_export_button_state()
-
-    def _on_filename_changed(self, _event=None):
-        self.app_state.set("calculator_filename", self.filename_var.get())
-        self._update_export_button_state()
-
-    def _on_filename_input(self, _event=None):
-        self._update_export_button_state()
-
-    def _on_export_clicked(self):
-        pass
-
-    def _is_valid_calculator_filename(self, name):
-        if not isinstance(name, str):
-            return False
-        if "." in name:
-            return False
-
-        if self.self_install_var.get():
-            pattern = r"^[A-Z][A-Z0-9]{0,7}$"
+    def _refresh_view_buttons(self):
+        if self.app_state.view_variant == "large":
+            self.large_btn.state(["disabled"])
+            self.small_btn.state(["!disabled"])
         else:
-            pattern = r"^[A-Z][A-Za-z0-9]{0,7}$"
+            self.small_btn.state(["disabled"])
+            self.large_btn.state(["!disabled"])
 
-        return re.fullmatch(pattern, name) is not None
-
-    def _update_export_button_state(self):
-        if not hasattr(self, "btn_export"):
+    def _refresh_preview(self):
+        font_data = self.app_state.current_font_data
+        if font_data is None:
+            self.preview_label.configure(image="")
             return
-        is_valid = self._is_valid_calculator_filename(self.filename_var.get())
-        self.btn_export.configure(state="normal" if is_valid else "disabled")
 
-    def _on_font_changed(self, _event=None):
-        self.app_state.set("font_name", self.font_var.get())
+        codepoint = int(self.app_state.selected_glyph)
+        variant = self.app_state.view_variant
+        nudging = self.app_state.get_variant_nudging(variant).get(codepoint, (0, 0))
+        glyph = font_data.get_nudged_glyph_image(variant, codepoint, nudging)
+        zoomed = glyph.convert("L").resize((glyph.width * 8, glyph.height * 8), Image.Resampling.NEAREST)
+        self.preview_photo = ImageTk.PhotoImage(zoomed)
+        self.preview_label.configure(image=self.preview_photo)
 
+    def _on_canvas_selection_change(self, _codepoint):
+        self._refresh_preview()
 
+    def _on_encoding_selected(self, _event=None):
+        self.app_state.set_encoding(self.encoding_var.get())
 
+    def _set_view_variant(self, variant: str):
+        self.app_state.set_view_variant(variant)
 
+    def _commit_variant_inputs(self, _event=None):
+        variant = self.app_state.view_variant
+        self.app_state.set_variant_font_path(variant, self.font_path_var.get().strip())
+        self.app_state.set_variant_font_name(variant, self.font_name_var.get().strip())
+        self.app_state.set_variant_font_size(variant, int(self.font_size_var.get()))
+        self.app_state.set_variant_aliasing(variant, self.aliasing_var.get())
+
+    def _pick_font_folder(self):
+        selected = filedialog.askdirectory(
+            title="Choose Font Folder",
+            initialdir=self.font_path_var.get() or str(self.app_state.root_dir),
+        )
+        if selected:
+            self.font_path_var.set(selected)
+            self._commit_variant_inputs()
+
+    def _on_output_target_selected(self, _event=None):
+        self.app_state.set_output_target(self.output_target_var.get())
+
+    def _on_output_basename_commit(self, _event=None):
+        value = self.output_basename_var.get()
+        self.app_state.set_output_basename(value)
+
+    def _on_project_path_commit(self, _event=None):
+        value = self.project_path_var.get().strip()
+        if value:
+            self.app_state.set_project_path(value)
+
+    def _save_project(self):
+        initial = str(self.app_state.project_path)
+        selected = filedialog.asksaveasfilename(
+            title="Save Project",
+            initialfile=Path(initial).name,
+            initialdir=str(Path(initial).parent),
+            defaultextension=".cefont",
+            filetypes=[("CE Font Project", "*.cefont")],
+        )
+        if not selected:
+            return
+
+        try:
+            self._commit_variant_inputs()
+            self._on_output_basename_commit()
+            self.app_state.save_project_file(selected)
+            messagebox.showinfo("Project Saved", f"Saved project:\n{self.app_state.project_path}")
+        except Exception as exc:
+            messagebox.showerror("Save Failed", str(exc))
+
+    def _load_project(self):
+        selected = filedialog.askopenfilename(
+            title="Load Project",
+            initialdir=str(self.app_state.projects_dir),
+            filetypes=[("CE Font Project", "*.cefont")],
+        )
+        if not selected:
+            return
+
+        try:
+            self.app_state.load_project_file(selected)
+            messagebox.showinfo("Project Loaded", f"Loaded project:\n{self.app_state.project_path}")
+        except Exception as exc:
+            messagebox.showerror("Load Failed", str(exc))
+
+    def _on_export(self):
+        self._commit_variant_inputs()
+        self._on_output_basename_commit()
+        messagebox.showinfo(
+            "Export",
+            "Export pipeline is not implemented in this restart yet.\n\n"
+            f"Target: {self.app_state.output_target}\n"
+            f"Basename: {self.app_state.output_basename}",
+        )
