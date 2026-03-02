@@ -64,6 +64,7 @@
     can be added without changing the dimensions of the window.
 
 5.  This area is used for a number of things. It will contain:
+    -   The size of the input font, in points.
     -   A checkbox for whether or not to use the small font. Unchecked by default.
     -   A drop-down indicating the encoding to use. The default value is the
         topmost entry in the list below. The list of encodings is as follows:
@@ -101,4 +102,8 @@
         -   The remaining characters must be uppercase alphanumeric
         If the self-installing checkbox is not checked (is an appvar),
         the filename restriction is loosened to allow lowercase letters as well.
+
+## Additional Notes
+
+`encodings.json` in the `src` folder can be regenerated using the `generate.py` standalone script.
 
