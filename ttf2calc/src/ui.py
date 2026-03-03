@@ -158,6 +158,12 @@ class MainApplication(tk.Frame):
         self.aliasing_combo.grid(row=0, column=3, sticky="ew")
         self.aliasing_combo.bind("<<ComboboxSelected>>", self._commit_variant_inputs)
 
+        ttk.Button(
+            variant_frame,
+            text="Reset Nudging",
+            command=self._reset_current_variant_nudging,
+        ).grid(row=2, column=0, columnspan=3, sticky="ew", pady=(0, 4))
+
     def _build_output_section(self, parent):
         output_frame = ttk.LabelFrame(parent, text="Output")
         output_frame.grid(row=5, column=0, sticky="ew")
@@ -252,6 +258,9 @@ class MainApplication(tk.Frame):
         if size is None:
             return
         self.app_state.set_variant_font_size(self.app_state.view_variant, size)
+
+    def _reset_current_variant_nudging(self):
+        self.app_state.reset_variant_nudging(self.app_state.view_variant)
 
     def _pick_font_folder(self):
         selected = filedialog.askdirectory(

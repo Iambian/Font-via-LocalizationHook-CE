@@ -25,6 +25,10 @@ class FontCanvas(tk.Canvas):
         self.bind("<ButtonPress-1>", self._on_left_press)
         self.bind("<B1-Motion>", self._on_left_drag)
         self.bind("<ButtonRelease-1>", self._on_left_release)
+        self.bind("<KeyPress-Up>", self._on_arrow_nudge)
+        self.bind("<KeyPress-Down>", self._on_arrow_nudge)
+        self.bind("<KeyPress-Left>", self._on_arrow_nudge)
+        self.bind("<KeyPress-Right>", self._on_arrow_nudge)
 
         self.redraw()
 
@@ -49,6 +53,7 @@ class FontCanvas(tk.Canvas):
         self.app_state.set_canvas_transform(scale=next_scale, pan_x=next_pan_x, pan_y=next_pan_y)
 
     def _on_left_press(self, event):
+        self.focus_set()
         self._press_xy = (event.x, event.y)
         self._start_pan = (
             int(self.app_state.canvas_transform["pan_x"]),
@@ -79,6 +84,20 @@ class FontCanvas(tk.Canvas):
             self._press_xy = None
             self._start_pan = None
             self._is_panning = False
+
+    def _on_arrow_nudge(self, event):
+        delta = {
+            "Up": (0, -1),
+            "Down": (0, 1),
+            "Left": (-1, 0),
+            "Right": (1, 0),
+        }
+        dx_dy = delta.get(event.keysym)
+        if dx_dy is None:
+            return
+
+        self.app_state.nudge_selected_glyph(dx_dy[0], dx_dy[1])
+        return "break"
 
     def _select_from_canvas_xy(self, canvas_x: int, canvas_y: int):
         font_data = self.app_state.current_font_data

@@ -403,7 +403,27 @@ class AppState(object):
         return self.variants[variant]["nudging"]
 
     def set_nudge(self, variant: str, codepoint: int, dx: int, dy: int):
-        self.variants[variant]["nudging"][int(codepoint)] = (int(dx), int(dy))
+        codepoint = int(codepoint)
+        dx = int(dx)
+        dy = int(dy)
+        if dx == 0 and dy == 0:
+            self.variants[variant]["nudging"].pop(codepoint, None)
+        else:
+            self.variants[variant]["nudging"][codepoint] = (dx, dy)
+        if self.current_font_data is not None:
+            self.current_font_data.clear_grid_cache()
+        self._notify()
+
+    def nudge_selected_glyph(self, dx: int, dy: int):
+        variant = self.view_variant
+        codepoint = int(self.selected_glyph)
+        current_dx, current_dy = self.variants[variant]["nudging"].get(codepoint, (0, 0))
+        self.set_nudge(variant, codepoint, current_dx + int(dx), current_dy + int(dy))
+
+    def reset_variant_nudging(self, variant: str):
+        if variant not in ("large", "small"):
+            return
+        self.variants[variant]["nudging"] = {}
         if self.current_font_data is not None:
             self.current_font_data.clear_grid_cache()
         self._notify()
