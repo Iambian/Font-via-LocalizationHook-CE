@@ -272,7 +272,10 @@ class AppState(object):
         }
 
         self.current_font_data: Optional[FontData] = None
+        self.current_font_data_key: Optional[Tuple] = None
         self.cached_font_data: Dict[Tuple, FontData] = {}
+        self.font_data_refresh_source = "new"
+        self.font_data_generation = 0
         self.refresh_font_data(force=True)
 
     def add_callback(self, callback: Callable):
@@ -308,12 +311,12 @@ class AppState(object):
     def refresh_font_data(self, force: bool = False):
         key = self._font_data_key()
 
-        if self.current_font_data is not None:
-            current_key = self._font_data_key()
-            self.cached_font_data[current_key] = self.current_font_data
+        if self.current_font_data is not None and self.current_font_data_key is not None:
+            self.cached_font_data[self.current_font_data_key] = self.current_font_data
 
         if (not force) and key in self.cached_font_data:
             self.current_font_data = self.cached_font_data[key]
+            self.font_data_refresh_source = "cache-hit"
         else:
             large = self.variants["large"]
             small = self.variants["small"]
@@ -330,6 +333,25 @@ class AppState(object):
                 small_aliasing=small["aliasing"],
             )
             self.cached_font_data[key] = self.current_font_data
+            self.font_data_refresh_source = "new"
+            self.font_data_generation += 1
+
+        self.current_font_data_key = key
+
+    def get_font_data_debug_text(self) -> str:
+        key = self.current_font_data_key
+        if key is None:
+            return "FontData: none"
+
+        short_key = (
+            f"\nenc={key[0]}\n "
+            f"L={key[2]}:{key[3]}:{key[4]}\n"
+            f"S={key[6]}:{key[7]}:{key[8]}\n"
+        )
+        return (
+            f"FontData [{self.font_data_refresh_source}]\n"
+            f"gen={self.font_data_generation} {short_key}"
+        )
 
     def set_encoding(self, encoding_name: str):
         if encoding_name not in self.encodings or encoding_name == self.encoding_name:

@@ -30,6 +30,7 @@ class MainApplication(tk.Frame):
         self.aliasing_var = tk.StringVar()
         self.output_target_var = tk.StringVar(value=self.app_state.output_target)
         self.output_basename_var = tk.StringVar(value=self.app_state.output_basename)
+        self.font_data_debug_var = tk.StringVar(value=self.app_state.get_font_data_debug_text())
 
         self.preview_photo = None
 
@@ -74,6 +75,12 @@ class MainApplication(tk.Frame):
         self.project_entry.grid(row=0, column=2, sticky="ew")
         self.project_entry.bind("<Return>", self._on_project_path_commit)
         self.project_entry.bind("<FocusOut>", self._on_project_path_commit)
+
+        ttk.Label(
+            frame,
+            textvariable=self.font_data_debug_var,
+            foreground="#606060",
+        ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(4, 0))
 
     def _build_preview_section(self, parent):
         preview_frame = ttk.LabelFrame(parent, text="Preview")
@@ -127,10 +134,18 @@ class MainApplication(tk.Frame):
         size_row.columnconfigure(1, weight=1)
 
         ttk.Label(size_row, text="Fontsize:").grid(row=0, column=0, sticky="w", padx=(0, 6))
-        self.size_spin = tk.Spinbox(size_row, from_=1, to=72, textvariable=self.font_size_var, width=6)
+        self.size_spin = tk.Spinbox(
+            size_row,
+            from_=1,
+            to=72,
+            textvariable=self.font_size_var,
+            width=6,
+            command=self._on_font_size_live_change,
+        )
         self.size_spin.grid(row=0, column=1, sticky="w", padx=(0, 8))
         self.size_spin.bind("<Return>", self._commit_variant_inputs)
         self.size_spin.bind("<FocusOut>", self._commit_variant_inputs)
+        self.size_spin.bind("<KeyRelease>", self._on_font_size_live_change)
 
         ttk.Label(size_row, text="Aliasing:").grid(row=0, column=2, sticky="w", padx=(8, 6))
         self.aliasing_combo = ttk.Combobox(
@@ -169,6 +184,7 @@ class MainApplication(tk.Frame):
         self.encoding_var.set(self.app_state.encoding_name)
         self.output_target_var.set(self.app_state.output_target)
         self.output_basename_var.set(self.app_state.output_basename)
+        self.font_data_debug_var.set(self.app_state.get_font_data_debug_text())
         self._populate_variant_controls_from_state()
         self._refresh_view_buttons()
         self._refresh_preview()
@@ -211,14 +227,31 @@ class MainApplication(tk.Frame):
         self.app_state.set_encoding(self.encoding_var.get())
 
     def _set_view_variant(self, variant: str):
+        self._commit_variant_inputs()
         self.app_state.set_view_variant(variant)
 
     def _commit_variant_inputs(self, _event=None):
         variant = self.app_state.view_variant
         self.app_state.set_variant_font_path(variant, self.font_path_var.get().strip())
         self.app_state.set_variant_font_name(variant, self.font_name_var.get().strip())
-        self.app_state.set_variant_font_size(variant, int(self.font_size_var.get()))
+        size = self._parse_font_size_or_none()
+        if size is not None:
+            self.app_state.set_variant_font_size(variant, size)
         self.app_state.set_variant_aliasing(variant, self.aliasing_var.get())
+
+    def _parse_font_size_or_none(self):
+        value = str(self.font_size_var.get()).strip()
+        if not value:
+            return None
+        if not value.isdigit():
+            return None
+        return max(1, int(value))
+
+    def _on_font_size_live_change(self, _event=None):
+        size = self._parse_font_size_or_none()
+        if size is None:
+            return
+        self.app_state.set_variant_font_size(self.app_state.view_variant, size)
 
     def _pick_font_folder(self):
         selected = filedialog.askdirectory(
