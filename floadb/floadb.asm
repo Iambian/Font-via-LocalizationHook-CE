@@ -17,8 +17,8 @@
 .assume adl=1
 ;NOTE: The build instructions explicitly states the include path.
 ;You will not find these files inside this folder.
-#include "../include/ti84pce.inc"
-#include "../include/macros.inc"
+#include "ti84pce.inc"
+#include "macros.inc"
 
 #define ERR_OK 0
 #define ERR_FAIL 1

@@ -600,7 +600,7 @@ def export_font_data(font_data: FontData, file_name: str, export_type: str):
         Image mode details:
             Glyph images are PIL Images (mode "1") where foreground pixels are on.
     """
-    def compose_asm_stub(fileobj: TextIO, using_loader: bool = True, hooktype: str = "lhook"):
+    def compose_asm_stub(fileobj: TextIO, using_loader: bool = True, hooktype: str = "lhook") -> Path:
         # NOTE: This is a complete stub. It can be compiled AS-IS.
         # To make an actual font, though, you must append the following
         # after this stub has been written to the file:
@@ -608,6 +608,8 @@ def export_font_data(font_data: FontData, file_name: str, export_type: str):
         # 2. lfont.z80
         # 3. sfont.z80
         project_root = Path(__file__).resolve().parents[2]
+        build_dir = project_root / "build"
+        build_dir.mkdir(parents=True, exist_ok=True)
         hook_dir = project_root / "lib" / hooktype
         if using_loader:
             fileobj.write("#define USING_LOADER\n")
@@ -618,6 +620,7 @@ def export_font_data(font_data: FontData, file_name: str, export_type: str):
                 fileobj.write(loader.read())
         with (hook_dir / "hook.asm").open("r", encoding="utf-8") as hook:
             fileobj.write(hook.read())
+        return build_dir
 
     def _glyph_label(glyph: str) -> str:
         if len(glyph) == 1 and ord(glyph) > 127:
@@ -756,6 +759,14 @@ def export_font_data(font_data: FontData, file_name: str, export_type: str):
             raise ValueError("8xp export name must not begin with a digit.")
         return filtered
 
+    def _sanitize_8xv_basename(raw_name: str) -> str:
+        stem = Path(raw_name).stem
+        if not stem:
+            raise ValueError("8xv export name is empty.")
+        if any(ord(ch) > 127 for ch in stem):
+            raise ValueError("8xv export name must contain only ASCII characters.")
+        return stem
+
     if export_type == "Standalone (8xp)":
         project_root = Path(__file__).resolve().parents[2]
         tool_path = project_root / "tools" / "spasm-ng.exe"
@@ -763,15 +774,16 @@ def export_font_data(font_data: FontData, file_name: str, export_type: str):
             raise FileNotFoundError(f"Assembler not found: {tool_path}")
 
         sanitized_name = _sanitize_8xp_basename(file_name)
-        output_path = Path.cwd() / f"{sanitized_name}.8xp"
-        include_path = Path.cwd() / "../include"
+        include_path = project_root / "include"
 
         temp_asm_path = None
         try:
             with tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".asm", encoding="utf-8") as asm_file:
                 temp_asm_path = Path(asm_file.name)
-                compose_asm_stub(asm_file, using_loader=True, hooktype="lhook")
+                build_dir = compose_asm_stub(asm_file, using_loader=True, hooktype="lhook")
                 write_packing_stub(asm_file, font_data)
+
+            output_path = build_dir / f"{sanitized_name}.8xp"
 
             result = subprocess.run(
                 [str(tool_path),"-E", "-A", "-I", str(include_path), str(temp_asm_path), str(output_path)],
@@ -789,7 +801,38 @@ def export_font_data(font_data: FontData, file_name: str, export_type: str):
             if temp_asm_path is not None and temp_asm_path.exists():
                 temp_asm_path.unlink(missing_ok=True)
     elif export_type == "Viewer Only (8xv)":
-        pass
+        project_root = Path(__file__).resolve().parents[2]
+        tool_path = project_root / "tools" / "spasm-ng.exe"
+        if not tool_path.exists():
+            raise FileNotFoundError(f"Assembler not found: {tool_path}")
+
+        sanitized_name = _sanitize_8xv_basename(file_name)
+        include_path = project_root / "include"
+
+        temp_asm_path = None
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".asm", encoding="utf-8") as asm_file:
+                temp_asm_path = Path(asm_file.name)
+                build_dir = compose_asm_stub(asm_file, using_loader=False, hooktype="lhook")
+                write_packing_stub(asm_file, font_data)
+
+            output_path = build_dir / f"{sanitized_name}.8xv"
+
+            result = subprocess.run(
+                [str(tool_path), "-E", "-A", "-I", str(include_path), str(temp_asm_path), str(output_path)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode != 0:
+                stderr = result.stderr.strip()
+                stdout = result.stdout.strip()
+                detail = stderr or stdout or f"spasm-ng exited with {result.returncode}"
+                raise RuntimeError(f"spasm-ng failed: {detail}")
+            return str(output_path)
+        finally:
+            if temp_asm_path is not None and temp_asm_path.exists():
+                temp_asm_path.unlink(missing_ok=True)
     elif export_type == "Standalone (C)":
         raise NotImplementedError("C export not yet implemented")
     elif export_type == "Viewer Only (C)":
