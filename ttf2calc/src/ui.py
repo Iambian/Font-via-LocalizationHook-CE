@@ -11,7 +11,7 @@ import tkinter as tk
 from tkinter import ttk, filedialog, messagebox
 from PIL import Image, ImageTk
 from .canvas import FontCanvas
-from .core import AppState, ALIASING_MODES, OUTPUT_TARGETS
+from .core import AppState, ALIASING_MODES, OUTPUT_TARGETS, export_font_data
 
 
 class MainApplication(tk.Frame):
@@ -30,6 +30,7 @@ class MainApplication(tk.Frame):
         self.aliasing_var = tk.StringVar()
         self.output_target_var = tk.StringVar(value=self.app_state.output_target)
         self.output_basename_var = tk.StringVar(value=self.app_state.output_basename)
+        self.export_status_var = tk.StringVar(value="")
         self.font_data_debug_var = tk.StringVar(value=self.app_state.get_font_data_debug_text())
 
         self.preview_photo = None
@@ -68,25 +69,33 @@ class MainApplication(tk.Frame):
         frame.grid(row=0, column=0, sticky="ew", pady=(0, 8))
         frame.columnconfigure(2, weight=1)
 
-        ttk.Button(frame, text="L", width=3, command=self._load_project).grid(row=0, column=0, padx=(0, 4))
-        ttk.Button(frame, text="S", width=3, command=self._save_project).grid(row=0, column=1, padx=(0, 4))
+        ttk.Button(frame, text="📁", width=3, command=self._load_project).grid(row=0, column=0, padx=(0, 4))
+        ttk.Button(frame, text="💾", width=3, command=self._save_project).grid(row=0, column=1, padx=(0, 4))
 
         self.project_entry = ttk.Entry(frame, textvariable=self.project_path_var)
         self.project_entry.grid(row=0, column=2, sticky="ew")
         self.project_entry.bind("<Return>", self._on_project_path_commit)
         self.project_entry.bind("<FocusOut>", self._on_project_path_commit)
 
-        ttk.Label(
-            frame,
+    def _build_preview_section(self, parent):
+        cspanpos = 3
+        info_frame = ttk.Frame(parent)
+        info_frame.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        info_frame.columnconfigure(1, weight=1)
+
+        debug_label =ttk.Label(
+            info_frame,
             textvariable=self.font_data_debug_var,
             foreground="#606060",
-        ).grid(row=1, column=0, columnspan=3, sticky="w", pady=(4, 0))
+            justify="right",
+            font=("Consolas", 6),
+        )
+        debug_label.grid(row=0, column=cspanpos, columnspan=4, sticky="e", pady=(4, 0))
 
-    def _build_preview_section(self, parent):
-        preview_frame = ttk.LabelFrame(parent, text="Preview")
-        preview_frame.grid(row=1, column=0, sticky="ew", pady=(0, 8))
+        preview_frame = ttk.LabelFrame(info_frame, text="Preview")
+        preview_frame.grid(row=0, column=0, sticky="ew", pady=(0, 8))
         self.preview_label = ttk.Label(preview_frame)
-        self.preview_label.grid(row=0, column=0, padx=8, pady=8)
+        self.preview_label.grid(row=0, column=0, columnspan=cspanpos, padx=8, pady=8)
 
     def _build_encoding_and_view(self, parent):
         enc_frame = ttk.Frame(parent)
@@ -168,6 +177,7 @@ class MainApplication(tk.Frame):
         output_frame = ttk.LabelFrame(parent, text="Output")
         output_frame.grid(row=5, column=0, sticky="ew")
         output_frame.columnconfigure(0, weight=1)
+        output_frame.columnconfigure(1, weight=1)
 
         self.output_combo = ttk.Combobox(
             output_frame,
@@ -175,15 +185,25 @@ class MainApplication(tk.Frame):
             values=OUTPUT_TARGETS,
             state="readonly",
         )
+        
         self.output_combo.grid(row=0, column=0, sticky="ew", padx=4, pady=(4, 4))
         self.output_combo.bind("<<ComboboxSelected>>", self._on_output_target_selected)
 
         self.output_entry = ttk.Entry(output_frame, textvariable=self.output_basename_var)
-        self.output_entry.grid(row=1, column=0, sticky="ew", padx=4, pady=(0, 4))
+        self.output_entry.grid(row=0, column=1, sticky="ew", padx=4, pady=(0, 4))
         self.output_entry.bind("<Return>", self._on_output_basename_commit)
         self.output_entry.bind("<FocusOut>", self._on_output_basename_commit)
 
-        ttk.Button(output_frame, text="EXPORT", command=self._on_export).grid(row=2, column=0, sticky="ew", padx=4, pady=(0, 6))
+        ttk.Button(output_frame, text="EXPORT FONT FILE", command=self._on_export).grid(row=2, column=0, columnspan=2, sticky="ew", padx=4, pady=(0, 4))
+
+        self.export_status_label = ttk.Label(
+            output_frame,
+            textvariable=self.export_status_var,
+            foreground="#606060",
+            justify="left",
+            wraplength=280,
+        )
+        self.export_status_label.grid(row=3, column=0, columnspan=2, sticky="w", padx=4, pady=(0, 6))
 
     def _on_state_change(self, _state):
         self.project_path_var.set(str(self.app_state.project_path))
@@ -321,9 +341,18 @@ class MainApplication(tk.Frame):
     def _on_export(self):
         self._commit_variant_inputs()
         self._on_output_basename_commit()
-        messagebox.showinfo(
-            "Export",
-            "Export pipeline is not implemented in this restart yet.\n\n"
-            f"Target: {self.app_state.output_target}\n"
-            f"Basename: {self.app_state.output_basename}",
-        )
+
+        try:
+            if self.app_state.current_font_data is None:
+                raise RuntimeError("No FontData is currently loaded.")
+
+            export_font_data(
+                font_data=self.app_state.current_font_data,
+                file_name=self.app_state.output_basename,
+                export_type=self.app_state.output_target,
+            )
+            self.export_status_label.configure(foreground="#1f7a1f")
+            self.export_status_var.set("Export succeeded.")
+        except Exception as exc:
+            self.export_status_label.configure(foreground="#a12a2a")
+            self.export_status_var.set(f"Export failed: {exc}")

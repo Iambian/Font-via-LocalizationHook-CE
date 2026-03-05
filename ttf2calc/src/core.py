@@ -5,9 +5,9 @@
     core module.
 '''
 
-import json
+import json, tempfile
 from pathlib import Path
-from typing import Optional, List, Callable, Dict, Tuple
+from typing import Optional, List, Callable, Dict, Tuple, TextIO
 
 from PIL import Image, ImageFont, ImageDraw
 
@@ -344,13 +344,13 @@ class AppState(object):
             return "FontData: none"
 
         short_key = (
-            f"\nenc={key[0]}\n "
+            f"{key[0]}\n"
             f"L={key[2]}:{key[3]}:{key[4]}\n"
-            f"S={key[6]}:{key[7]}:{key[8]}\n"
+            f"S={key[6]}:{key[7]}:{key[8]}"
         )
         return (
-            f"FontData [{self.font_data_refresh_source}]\n"
-            f"gen={self.font_data_generation} {short_key}"
+            f"FontData [{self.font_data_refresh_source}], "
+            f"gen={self.font_data_generation}\n{short_key}"
         )
 
     def set_encoding(self, encoding_name: str):
@@ -562,3 +562,94 @@ class AppState(object):
         with path.open("r", encoding="utf-8") as handle:
             data = json.load(handle)
         self.load_project_data(data)
+
+
+def export_font_data(font_data: FontData, file_name: str, export_type: str):
+    """Export font data to a target format.
+
+    Parameters:
+        font_data:
+            A FontData instance already configured with encoding + both variants.
+            Most export logic should consume glyphs from this object.
+        file_name:
+            Output file name or base path that the exporter should write to.
+        export_type:
+            One of:
+            - "Standalone (8xp)"
+            - "Viewer Only (8xv)"
+            - "Standalone (C)"
+            - "Viewer Only (C)"
+
+    FontData glyph access quick reference:
+        Base glyph bitmaps (without nudging):
+            font_data.base_images["large"][codepoint]
+            font_data.base_images["small"][codepoint]
+
+        Nudged glyph bitmap for a codepoint:
+            font_data.get_nudged_glyph_image("large", codepoint, (dx, dy))
+            font_data.get_nudged_glyph_image("small", codepoint, (dx, dy))
+
+        Encoded Unicode mapping for a TI codepoint:
+            char = font_data.encoding_map.get(f"0x{codepoint:02X}")
+
+        Grid/cell geometry:
+            metrics = font_data.get_variant_metrics("large" or "small")
+            x, y, w, h = font_data.get_glyph_rect_in_grid(codepoint, "large" or "small")
+
+        Image mode details:
+            Glyph images are PIL Images (mode "1") where foreground pixels are on.
+    """
+    def compose_asm_stub(fileobj:TextIO, using_loader=True, hooktype="lhook"):
+        # NOTE: This is a complete stub. It can be compiled AS-IS.
+        # To make an actual font, though, you must append the following
+        # after this stub has been written to the file:
+        # 1. encodings.z80
+        # 2. lfont.z80
+        # 3. sfont.z80
+        if using_loader:
+            fileobj.write("#define USING_LOADER\n")
+        with open(f"../lib/{hooktype}/sahead.asm", "r") as stub:
+            fileobj.write(stub.read())
+        if using_loader:
+            with open(f"../lib/{hooktype}/loader.asm", "r") as loader:
+                fileobj.write(loader.read())
+        with open(f"../lib/{hooktype}/hook.asm", "r") as hook:
+            fileobj.write(hook.read())
+    def write_packing_stub(fileobj:TextIO, fontdata:FontData):
+        # NOTE: If used, this should be called after compose_asm_stub().
+        # This will finish the assembly of a font file. Whether or not it
+        # is standalone or viewer-only is determined by whether compose_asm_stub()
+        # was called with using_loader=True or False.
+
+        #TODO: Write the following segments based on the algorithm in
+        #../build/packer.py. This should write the following segments to
+        # fileobj:
+        #   1. encodings.z80
+        #   2. lfont.z80
+        #   3. sfont.z80
+        pass
+
+    if export_type == "Standalone (8xp)":
+        fobj = tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".asm")
+        compose_asm_stub(fobj, using_loader=True, hooktype="lhook")
+        write_packing_stub(fobj, font_data)
+        fobj.close()
+        #TODO: Mutate file_name to have all uppercase letters and no symbols.
+        #.8xp files are not allowed lowercase letters.
+        #Error out if file_name begins with a number or is empty after sanitization.
+        #TODO: Invoke the assembler to produce the final. 8xp file.
+        # Use command line
+        #   ../tools/spasm-ng <tempfile> <{file_name}.8xp>
+        # Then delete the temp file.
+
+
+
+        pass
+    elif export_type == "Viewer Only (8xv)":
+        pass
+    elif export_type == "Standalone (C)":
+        raise NotImplementedError("C export not yet implemented")
+    elif export_type == "Viewer Only (C)":
+        raise NotImplementedError("C export not yet implemented")
+    else:
+        raise ValueError(f"Unsupported export_type: {export_type}")
