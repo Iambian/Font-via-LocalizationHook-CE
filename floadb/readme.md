@@ -18,7 +18,7 @@ Building
 --------
 1. Open a terminal in the `floadb` folder.
 2. Run `build.bat`.
-3. Output program: `FLOADB.8xp`
+3. Output program: `../build/FLOADB.8xp` (See the `build` directory in the main project root folder)
 
 Input and Output
 ----------------
@@ -90,11 +90,3 @@ Notes
 * Each successful install replaces the previous one.
 * Passing an empty `Str0` explicitly uninstalls the active font.
 * Name length and format must fit TI variable naming constraints.
-
-Related Components
-------------------
-* `hook/` - localization hook and font package format
-* `viewer/` - visual browser/installer (`FONTVIEW`)
-* `feditb/` - BASIC utility for reading/editing glyph data
-
-

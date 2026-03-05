@@ -100,7 +100,8 @@ Run the build script:
 build.bat
 ```
 
-This will compile `feditb.asm` and generate `FEDITB.8xp`.
+This will compile `feditb.asm` and generate `FEDITB.8xp`. This file will be in
+the `build` directory of the main project (see `../build/`).
 
 ## Installation
 

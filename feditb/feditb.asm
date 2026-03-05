@@ -15,6 +15,8 @@
 ;
 
 .assume adl=1
+;NOTE: Build parameters explicitly sets include directory. You won't find them
+;in this folder.
 #include "ti84pce.inc"
 #include "macros.inc"
 ;-----------------------------------------------------------------------------
