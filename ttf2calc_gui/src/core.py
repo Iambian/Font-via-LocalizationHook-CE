@@ -5,9 +5,10 @@
     core module.
 '''
 
-import json, tempfile
+import json, tempfile, unicodedata, subprocess
 from pathlib import Path
 from typing import Optional, List, Callable, Dict, Tuple, TextIO
+import fontTools
 
 from PIL import Image, ImageFont, ImageDraw
 
@@ -599,52 +600,194 @@ def export_font_data(font_data: FontData, file_name: str, export_type: str):
         Image mode details:
             Glyph images are PIL Images (mode "1") where foreground pixels are on.
     """
-    def compose_asm_stub(fileobj:TextIO, using_loader=True, hooktype="lhook"):
+    def compose_asm_stub(fileobj: TextIO, using_loader: bool = True, hooktype: str = "lhook"):
         # NOTE: This is a complete stub. It can be compiled AS-IS.
         # To make an actual font, though, you must append the following
         # after this stub has been written to the file:
         # 1. encodings.z80
         # 2. lfont.z80
         # 3. sfont.z80
+        project_root = Path(__file__).resolve().parents[2]
+        hook_dir = project_root / "lib" / hooktype
         if using_loader:
             fileobj.write("#define USING_LOADER\n")
-        with open(f"../lib/{hooktype}/sahead.asm", "r") as stub:
+        with (hook_dir / "sahead.asm").open("r", encoding="utf-8") as stub:
             fileobj.write(stub.read())
         if using_loader:
-            with open(f"../lib/{hooktype}/loader.asm", "r") as loader:
+            with (hook_dir / "loader.asm").open("r", encoding="utf-8") as loader:
                 fileobj.write(loader.read())
-        with open(f"../lib/{hooktype}/hook.asm", "r") as hook:
+        with (hook_dir / "hook.asm").open("r", encoding="utf-8") as hook:
             fileobj.write(hook.read())
-    def write_packing_stub(fileobj:TextIO, fontdata:FontData):
+
+    def _glyph_label(glyph: str) -> str:
+        if len(glyph) == 1 and ord(glyph) > 127:
+            try:
+                return unicodedata.name(glyph)
+            except ValueError:
+                return f"U+{ord(glyph):04X}"
+        return glyph
+
+    def _glyph_code_repr(glyph: str) -> str:
+        if len(glyph) == 1:
+            return f"0x{ord(glyph):02X}"
+        return " ".join(f"U+{ord(ch):04X}" for ch in glyph)
+
+    def _glyph_image_has_pixels(image: Optional[Image.Image]) -> bool:
+        if image is None:
+            return False
+        return image.convert("L").getbbox() is not None
+
+    def _small_glyph_pixel_width(image: Image.Image) -> int:
+        bbox = image.convert("L").getbbox()
+        if bbox is None:
+            return 1
+        return max(1, min(15, int(bbox[2])))
+
+    def _encode_large_font_glyph(image: Image.Image, glyph: str, ti_codepoint: int) -> str:
+        li = [0] * 28
+        w, h = image.size
+        w = min(12, int(w))
+        h = min(14, int(h))
+        mono = image.convert("1")
+
+        for y in range(h):
+            for x in range(w):
+                if mono.getpixel((x, y)):
+                    offset = 2 * y + (1 if x > 4 else 0)
+                    if x > 4:
+                        li[offset] |= 1 << abs(x - 12)
+                    else:
+                        li[offset] |= 1 << abs(x - 7)
+
+        out = []
+        for row_index, (a, b) in enumerate(zip(li[0::2], li[1::2])):
+            line = f".db %{a:08b},%{b:08b}"
+            if row_index == 0:
+                line += f"  ;chr {_glyph_label(glyph)} [{ti_codepoint}]"
+            out.append(line)
+        return "\n".join(out) + "\n"
+
+    def _encode_small_font_glyph(image: Image.Image, glyph: str, ti_codepoint: int) -> str:
+        li = [0] * 24
+        w = _small_glyph_pixel_width(image) + 1
+        w = min(16, int(w))
+        h = min(12, int(image.size[1]))
+        mono = image.convert("1")
+
+        for y in range(h):
+            for x in range(w - 1):
+                if mono.getpixel((x, y)):
+                    offset = 2 * y + (x // 8)
+                    shift = abs(7 - (x % 8))
+                    li[offset] |= 1 << shift
+
+        out = [f".db {w}            ;chr {_glyph_label(glyph)} [{ti_codepoint}]"]
+        for a, b in zip(li[0::2], li[1::2]):
+            if w > 8:
+                out.append(f".db %{a:08b},%{b:08b}")
+            else:
+                out.append(f".db %{a:08b}")
+        if w < 9:
+            out.append(".db 0,0,0,0,0,0")
+            out.append(".db 0,0,0,0,0,0")
+        return "\n".join(out) + "\n"
+
+    def write_packing_stub(fileobj: TextIO, fontdata: FontData):
         # NOTE: If used, this should be called after compose_asm_stub().
         # This will finish the assembly of a font file. Whether or not it
         # is standalone or viewer-only is determined by whether compose_asm_stub()
         # was called with using_loader=True or False.
 
-        #TODO: Write the following segments based on the algorithm in
-        #../build/packer.py. This should write the following segments to
-        # fileobj:
-        #   1. encodings.z80
-        #   2. lfont.z80
-        #   3. sfont.z80
-        pass
+        mapped = []
+        for key, glyph in fontdata.encoding_map.items():
+            if not isinstance(key, str) or not key.startswith("0x"):
+                continue
+            try:
+                ti_codepoint = int(key, 16)
+            except ValueError:
+                continue
+            if not (1 <= ti_codepoint <= 255):
+                continue
+
+            large_image = fontdata.base_images["large"].get(ti_codepoint)
+            small_image = fontdata.base_images["small"].get(ti_codepoint)
+            if not _glyph_image_has_pixels(large_image) and not _glyph_image_has_pixels(small_image):
+                continue
+
+            mapped.append((ti_codepoint, glyph))
+
+        mapped.sort(key=lambda item: item[0])
+
+        fileobj.write("\n; ----- encodings.z80 -----\n")
+        fileobj.write(f".db {len(mapped)} ;numobjs\n")
+
+        index_by_ticode = {ti_codepoint: idx for idx, (ti_codepoint, _glyph) in enumerate(mapped)}
+        for ti_codepoint in range(1, 256):
+            if ti_codepoint in index_by_ticode:
+                idx = index_by_ticode[ti_codepoint]
+                glyph = mapped[idx][1]
+                fileobj.write(
+                    f".db ${idx:02X}  ;idx ${ti_codepoint:02X}, chr {_glyph_label(glyph)} [{_glyph_code_repr(glyph)}]\n"
+                )
+            else:
+                fileobj.write(f".db $FF  ; idx ${ti_codepoint:02X} not mapped\n")
+
+        fileobj.write("\n; ----- lfont.z80 -----\n")
+        for ti_codepoint, glyph in mapped:
+            image = fontdata.base_images["large"].get(ti_codepoint)
+            if image is None:
+                image = Image.new("1", VARIANT_LIMITS["large"], 0)
+            fileobj.write(_encode_large_font_glyph(image, glyph, ti_codepoint))
+
+        fileobj.write("\n; ----- sfont.z80 -----\n")
+        for ti_codepoint, glyph in mapped:
+            image = fontdata.base_images["small"].get(ti_codepoint)
+            if image is None:
+                image = Image.new("1", VARIANT_LIMITS["small"], 0)
+            fileobj.write(_encode_small_font_glyph(image, glyph, ti_codepoint))
+
+    def _sanitize_8xp_basename(raw_name: str) -> str:
+        stem = Path(raw_name).stem
+        filtered = "".join(ch for ch in stem.upper() if ch.isalnum())
+        filtered = filtered[:8]
+        if not filtered:
+            raise ValueError("8xp export name is empty after sanitization.")
+        if filtered[0].isdigit():
+            raise ValueError("8xp export name must not begin with a digit.")
+        return filtered
 
     if export_type == "Standalone (8xp)":
-        fobj = tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".asm")
-        compose_asm_stub(fobj, using_loader=True, hooktype="lhook")
-        write_packing_stub(fobj, font_data)
-        fobj.close()
-        #TODO: Mutate file_name to have all uppercase letters and no symbols.
-        #.8xp files are not allowed lowercase letters.
-        #Error out if file_name begins with a number or is empty after sanitization.
-        #TODO: Invoke the assembler to produce the final. 8xp file.
-        # Use command line
-        #   ../tools/spasm-ng <tempfile> <{file_name}.8xp>
-        # Then delete the temp file.
+        project_root = Path(__file__).resolve().parents[2]
+        tool_path = project_root / "tools" / "spasm-ng.exe"
+        if not tool_path.exists():
+            raise FileNotFoundError(f"Assembler not found: {tool_path}")
 
+        sanitized_name = _sanitize_8xp_basename(file_name)
+        output_path = Path.cwd() / f"{sanitized_name}.8xp"
+        include_path = Path.cwd() / "../include"
 
+        temp_asm_path = None
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".asm", encoding="utf-8") as asm_file:
+                temp_asm_path = Path(asm_file.name)
+                compose_asm_stub(asm_file, using_loader=True, hooktype="lhook")
+                write_packing_stub(asm_file, font_data)
 
-        pass
+            result = subprocess.run(
+                [str(tool_path),"-E", "-A", "-I", str(include_path), str(temp_asm_path), str(output_path)],
+                capture_output=True,
+                text=True,
+                check=False,
+            )
+            if result.returncode != 0:
+                stderr = result.stderr.strip()
+                stdout = result.stdout.strip()
+                detail = stderr or stdout or f"spasm-ng exited with {result.returncode}"
+                raise RuntimeError(f"spasm-ng failed: {detail}")
+            return str(output_path)
+        finally:
+            if temp_asm_path is not None and temp_asm_path.exists():
+                temp_asm_path.unlink(missing_ok=True)
     elif export_type == "Viewer Only (8xv)":
         pass
     elif export_type == "Standalone (C)":

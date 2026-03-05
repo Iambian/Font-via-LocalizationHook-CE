@@ -1,5 +1,27 @@
 #!/usr/bin/python3
 
+''' Font Packer Script
+
+Packs a TrueType font into a format that can be used by the TI-84+CE Font Hook.
+Only the variables below should be modified. The rest of the script should be
+left alone unless you know what you're doing.
+'''
+# ==============================================================================
+# ==============================================================================
+# ==============================================================================
+
+USE_ENCODING_JSON   = "encoding/asciish.json"
+
+LARGE_FONT_LOCATION = "../fonts/OpenSans.ttf"
+LARGE_FONT_SIZE     = 14
+
+SMALL_FONT_LOCATION = "../fonts/OpenSans.ttf"
+SMALL_FONT_SIZE     = 12
+
+# ==============================================================================
+# ==============================================================================
+# ==============================================================================
+
 import os,sys,json,io,unicodedata
 from PIL import Image,ImageDraw,ImageFont,ImageOps
 
@@ -131,12 +153,13 @@ def reencode(jsonfilename,outputfilename):
         f.write(s)
     return ''.join( [c[0] for c in mappings] )
 ''' ~~~~~~~~~~~~~~~~~~~~~~~~~~~ SCRIPT START ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ '''
-encodings_in_my_json_file = None
-encodings_in_my_json_file = "encoding/asciish.json"
 
-encoding = reencode(encodings_in_my_json_file,"encodings.z80")
-packit("fonts/OpenSans.ttf",14,encoding,"lfont.z80",largefontsource)
-packit("fonts/OpenSans.ttf",12,encoding,"sfont.z80",smallfontsource)
+if not os.path.exists("obj"):
+    os.mkdir("obj")
+
+encoding = reencode(USE_ENCODING_JSON,"obj/encodings.z80")
+packit(LARGE_FONT_LOCATION,LARGE_FONT_SIZE,encoding,"obj/lfont.z80",largefontsource)
+packit(SMALL_FONT_LOCATION,SMALL_FONT_SIZE,encoding,"obj/sfont.z80",smallfontsource)
 
 
 
