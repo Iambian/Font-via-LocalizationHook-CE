@@ -1,4 +1,3 @@
-PROGRAM:TESTFE2
 ClrHome
 0->P
 0->F
