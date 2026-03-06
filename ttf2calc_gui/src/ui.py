@@ -39,10 +39,11 @@ class MainApplication(tk.Frame):
         self._populate_variant_controls_from_state()
         self._refresh_view_buttons()
         self._refresh_preview()
+        self._ensure_path_entries_show_end()
 
     def _build_ui(self):
-        self.columnconfigure(0, weight=3)
-        self.columnconfigure(1, weight=2)
+        self.columnconfigure(0, weight=1)
+        self.columnconfigure(1, weight=0,minsize=300)
         self.rowconfigure(0, weight=1)
 
         self.canvas = FontCanvas(
@@ -63,6 +64,7 @@ class MainApplication(tk.Frame):
         self._build_encoding_and_view(panel)
         self._build_variant_section(panel)
         self._build_output_section(panel)
+        self._build_instructions_section(panel)
 
     def _build_project_row(self, parent):
         frame = ttk.Frame(parent)
@@ -76,6 +78,7 @@ class MainApplication(tk.Frame):
         self.project_entry.grid(row=0, column=2, sticky="ew")
         self.project_entry.bind("<Return>", self._on_project_path_commit)
         self.project_entry.bind("<FocusOut>", self._on_project_path_commit)
+        self.project_entry.bind("<FocusOut>", lambda _event: self._show_entry_end(self.project_entry), add="+")
 
     def _build_preview_section(self, parent):
         cspanpos = 3
@@ -128,15 +131,20 @@ class MainApplication(tk.Frame):
 
         ttk.Button(variant_frame, text="…", width=3, command=self._pick_font_folder).grid(row=0, column=0, padx=(0, 4), pady=4)
 
-        path_entry = ttk.Entry(variant_frame, textvariable=self.font_path_var)
-        path_entry.grid(row=0, column=1, sticky="ew", pady=4, padx=(0, 4))
-        path_entry.bind("<Return>", self._commit_variant_inputs)
-        path_entry.bind("<FocusOut>", self._commit_variant_inputs)
+        self.font_path_entry = ttk.Entry(variant_frame, textvariable=self.font_path_var)
+        self.font_path_entry.grid(row=0, column=1, sticky="ew", pady=4, padx=(0, 4))
+        self.font_path_entry.bind("<Return>", self._commit_variant_inputs)
+        self.font_path_entry.bind("<FocusOut>", self._commit_variant_inputs)
+        self.font_path_entry.bind("<FocusOut>", lambda _event: self._show_entry_end(self.font_path_entry), add="+")
 
-        name_entry = ttk.Entry(variant_frame, textvariable=self.font_name_var)
-        name_entry.grid(row=0, column=2, sticky="ew", pady=4)
-        name_entry.bind("<Return>", self._commit_variant_inputs)
-        name_entry.bind("<FocusOut>", self._commit_variant_inputs)
+        self.font_name_combo = ttk.Combobox(
+            variant_frame,
+            textvariable=self.font_name_var,
+            state="readonly",
+        )
+        self.font_name_combo.grid(row=0, column=2, sticky="ew", pady=4)
+        self.font_name_combo.bind("<<ComboboxSelected>>", self._commit_variant_inputs)
+        self.font_name_combo.bind("<FocusOut>", self._commit_variant_inputs)
 
         size_row = ttk.Frame(variant_frame)
         size_row.grid(row=1, column=0, columnspan=3, sticky="ew", pady=(0, 4))
@@ -205,6 +213,24 @@ class MainApplication(tk.Frame):
         )
         self.export_status_label.grid(row=3, column=0, columnspan=2, sticky="w", padx=4, pady=(0, 6))
 
+    def _build_instructions_section(self, parent):
+        instructions_frame = ttk.LabelFrame(parent, text="Instructions")
+        instructions_frame.grid(row=6, column=0, sticky="ew", pady=(8, 0))
+        instructions_frame.columnconfigure(0, weight=1)
+
+        instructions_text = (
+            "Font area is draggable and selectable with left mouse button, "
+            "and is zoomable with mouse wheel. Use the arrow keys to nudge "
+            "the selected glyph."
+        )
+        instructions_label = ttk.Label(
+            instructions_frame,
+            text=instructions_text,
+            justify="left",
+            wraplength=280,
+        )
+        instructions_label.grid(row=0, column=0, sticky="w", padx=4, pady=(4, 6))    
+
     def _on_state_change(self, _state):
         self.project_path_var.set(str(self.app_state.project_path))
         self.encoding_var.set(self.app_state.encoding_name)
@@ -212,17 +238,46 @@ class MainApplication(tk.Frame):
         self.output_basename_var.set(self.app_state.output_basename)
         self.font_data_debug_var.set(self.app_state.get_font_data_debug_text())
         self._populate_variant_controls_from_state()
+        self._ensure_path_entries_show_end()
         self._refresh_view_buttons()
         self._refresh_preview()
         self.canvas.redraw()
+
+    def _show_entry_end(self, entry_widget):
+        entry_widget.icursor(tk.END)
+        entry_widget.xview_moveto(1.0)
+
+    def _ensure_path_entries_show_end(self):
+        focused = self.focus_get()
+        for entry_widget in (getattr(self, "project_entry", None), getattr(self, "font_path_entry", None)):
+            if entry_widget is not None and focused is not entry_widget:
+                self._show_entry_end(entry_widget)
 
     def _populate_variant_controls_from_state(self):
         variant = self.app_state.view_variant
         current = self.app_state.variants[variant]
         self.font_path_var.set(current["font_path"])
         self.font_name_var.set(current["font_name"])
+        self._refresh_font_name_choices(select_default=False)
         self.font_size_var.set(int(current["size"]))
         self.aliasing_var.set(current["aliasing"])
+
+    def _refresh_font_name_choices(self, select_default=True):
+        names = []
+        folder_text = self.font_path_var.get().strip()
+        if folder_text:
+            folder = Path(folder_text)
+            if folder.is_dir():
+                names = sorted(
+                    path.name
+                    for path in folder.iterdir()
+                    if path.is_file() and path.suffix.lower() == ".ttf"
+                )
+
+        self.font_name_combo.configure(values=names)
+        current_name = self.font_name_var.get().strip()
+        if select_default and names and current_name not in names:
+            self.font_name_var.set(names[0])
 
     def _refresh_view_buttons(self):
         if self.app_state.view_variant == "large":
@@ -259,6 +314,7 @@ class MainApplication(tk.Frame):
     def _commit_variant_inputs(self, _event=None):
         variant = self.app_state.view_variant
         self.app_state.set_variant_font_path(variant, self.font_path_var.get().strip())
+        self._refresh_font_name_choices()
         self.app_state.set_variant_font_name(variant, self.font_name_var.get().strip())
         size = self._parse_font_size_or_none()
         if size is not None:
@@ -350,6 +406,14 @@ class MainApplication(tk.Frame):
                 font_data=self.app_state.current_font_data,
                 file_name=self.app_state.output_basename,
                 export_type=self.app_state.output_target,
+                large_nudging={
+                    int(codepoint): (int(delta[0]), int(delta[1]))
+                    for codepoint, delta in self.app_state.get_variant_nudging("large").items()
+                },
+                small_nudging={
+                    int(codepoint): (int(delta[0]), int(delta[1]))
+                    for codepoint, delta in self.app_state.get_variant_nudging("small").items()
+                },
             )
             self.export_status_label.configure(foreground="#1f7a1f")
             self.export_status_var.set("Export succeeded.")

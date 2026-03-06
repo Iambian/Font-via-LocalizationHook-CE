@@ -7,8 +7,8 @@
 
 import json, tempfile, unicodedata, subprocess
 from pathlib import Path
-from typing import Optional, List, Callable, Dict, Tuple, TextIO
-import fontTools
+from typing import Optional, List, Callable, Dict, Tuple, TextIO, Set
+from fontTools.ttLib import TTFont
 
 from PIL import Image, ImageFont, ImageDraw
 
@@ -68,8 +68,41 @@ class FontData(object):
             "large": {},
             "small": {},
         }
+        self._variant_supported_codepoints: Dict[str, Set[int]] = {
+            "large": self._load_supported_codepoints("large"),
+            "small": self._load_supported_codepoints("small"),
+        }
         self._grid_cache: Dict[Tuple[str, Tuple[Tuple[int, Tuple[int, int]], ...]], Image.Image] = {}
         self._generate_base_images()
+
+    def _load_supported_codepoints(self, variant: str) -> Set[int]:
+        settings = self.variant_settings[variant]
+        font_path = Path(settings["font_path"]) / settings["font_name"]
+        if not font_path.exists():
+            return set()
+
+        tt_font = None
+        try:
+            tt_font = TTFont(str(font_path), lazy=True)
+            cmap = tt_font.getBestCmap() or {}
+            return {
+                int(codepoint)
+                for codepoint, glyph_name in cmap.items()
+                if glyph_name and glyph_name != ".notdef"
+            }
+        except Exception:
+            return set()
+        finally:
+            if tt_font is not None:
+                tt_font.close()
+
+    def variant_has_unicode_mapping(self, variant: str, glyph: str) -> bool:
+        if len(glyph) != 1:
+            return False
+        return ord(glyph) in self._variant_supported_codepoints.get(variant, set())
+
+    def has_unicode_mapping(self, glyph: str) -> bool:
+        return self.variant_has_unicode_mapping("large", glyph) or self.variant_has_unicode_mapping("small", glyph)
 
     @staticmethod
     def identity_key(
@@ -165,6 +198,8 @@ class FontData(object):
                 code_key = f"0x{codepoint:02X}"
                 char = self.encoding_map.get(code_key)
                 if char is None:
+                    continue
+                if not self.variant_has_unicode_mapping(variant, char):
                     continue
                 self.base_images[variant][codepoint] = self._render_glyph(
                     char=char,
@@ -565,7 +600,13 @@ class AppState(object):
         self.load_project_data(data)
 
 
-def export_font_data(font_data: FontData, file_name: str, export_type: str):
+def export_font_data(
+    font_data: FontData,
+    file_name: str,
+    export_type: str,
+    large_nudging: Optional[Dict[int, Tuple[int, int]]] = None,
+    small_nudging: Optional[Dict[int, Tuple[int, int]]] = None,
+):
     """Export font data to a target format.
 
     Parameters:
@@ -580,6 +621,9 @@ def export_font_data(font_data: FontData, file_name: str, export_type: str):
             - "Viewer Only (8xv)"
             - "Standalone (C)"
             - "Viewer Only (C)"
+        large_nudging / small_nudging:
+            Optional per-variant codepoint offsets used at export time. If omitted,
+            export uses no nudging.
 
     FontData glyph access quick reference:
         Base glyph bitmaps (without nudging):
@@ -639,6 +683,24 @@ def export_font_data(font_data: FontData, file_name: str, export_type: str):
         if image is None:
             return False
         return image.convert("L").getbbox() is not None
+
+    def _normalize_nudging(raw: Optional[Dict[int, Tuple[int, int]]]) -> Dict[int, Tuple[int, int]]:
+        if not raw:
+            return {}
+        return {
+            int(codepoint): (int(delta[0]), int(delta[1]))
+            for codepoint, delta in raw.items()
+            if isinstance(delta, (tuple, list)) and len(delta) == 2
+        }
+
+    export_nudging = {
+        "large": _normalize_nudging(large_nudging),
+        "small": _normalize_nudging(small_nudging),
+    }
+
+    def _get_nudged_export_image(fontdata: FontData, variant: str, ti_codepoint: int) -> Image.Image:
+        nudge = export_nudging[variant].get(int(ti_codepoint), (0, 0))
+        return fontdata.get_nudged_glyph_image(variant, int(ti_codepoint), nudge)
 
     def _small_glyph_pixel_width(image: Image.Image) -> int:
         bbox = image.convert("L").getbbox()
@@ -711,9 +773,11 @@ def export_font_data(font_data: FontData, file_name: str, export_type: str):
                 continue
             if not (1 <= ti_codepoint <= 255):
                 continue
+            if not fontdata.has_unicode_mapping(glyph):
+                continue
 
-            large_image = fontdata.base_images["large"].get(ti_codepoint)
-            small_image = fontdata.base_images["small"].get(ti_codepoint)
+            large_image = _get_nudged_export_image(fontdata, "large", ti_codepoint)
+            small_image = _get_nudged_export_image(fontdata, "small", ti_codepoint)
             if not _glyph_image_has_pixels(large_image) and not _glyph_image_has_pixels(small_image):
                 continue
 
@@ -737,16 +801,12 @@ def export_font_data(font_data: FontData, file_name: str, export_type: str):
 
         fileobj.write("\n; ----- lfont.z80 -----\n")
         for ti_codepoint, glyph in mapped:
-            image = fontdata.base_images["large"].get(ti_codepoint)
-            if image is None:
-                image = Image.new("1", VARIANT_LIMITS["large"], 0)
+            image = _get_nudged_export_image(fontdata, "large", ti_codepoint)
             fileobj.write(_encode_large_font_glyph(image, glyph, ti_codepoint))
 
         fileobj.write("\n; ----- sfont.z80 -----\n")
         for ti_codepoint, glyph in mapped:
-            image = fontdata.base_images["small"].get(ti_codepoint)
-            if image is None:
-                image = Image.new("1", VARIANT_LIMITS["small"], 0)
+            image = _get_nudged_export_image(fontdata, "small", ti_codepoint)
             fileobj.write(_encode_small_font_glyph(image, glyph, ti_codepoint))
 
     def _sanitize_8xp_basename(raw_name: str) -> str:
