@@ -1,3 +1,10 @@
 /hook/obj
 /builder/fonts/*.ttf
 /viewer/obj
+/ttf2calc/src/__pycache__/*.pyc
+/build/*
+!/build/TODO.txt
+/feditb/tests/AGFXTST.8xp
+/ttf2calc_cli/obj
+/ttf2calc_gui/projects
+/ttf2calc_gui/src/__pycache__

@@ -15,8 +15,10 @@
 ;
 
 .assume adl=1
-#include "../include/ti84pce.inc"
-#include "../include/macros.inc"
+;NOTE: Build parameters explicitly sets include directory. You won't find them
+;in this folder.
+#include "ti84pce.inc"
+#include "macros.inc"
 ;-----------------------------------------------------------------------------
 
 #define ERR_OK 0
@@ -851,9 +853,9 @@ fontPackHeaderEnd:
 fontObj_stubStart:
 .relocate(userMem-2)
 #define USING_LOADER
-#include "../hook/src/sahead.asm"
-#include "../hook/src/loader.asm"
-#include "../hook/src/hook.asm"
+#include "../lib/lhook/sahead.asm"
+#include "../lib/lhook/loader.asm"
+#include "../lib/lhook/hook.asm"
 .endrelocate()
 fontObj_stubEnd:
 
