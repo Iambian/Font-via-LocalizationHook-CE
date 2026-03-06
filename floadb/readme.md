@@ -1,92 +1,110 @@
-Font Loader - BASIC Utility (FLOADB)
-=====================================
+# FLOADB
 
-`FLOADB` is a BASIC-callable assembly utility that installs a font through the
-localization hook using a name provided in `Str0`.
+## Overview
 
-If the font install succeeds, future strings displayed by BASIC are rendered in
-the newly installed font until another font is installed.
+`FLOADB` is a BASIC-callable assembly utility that installs or uninstalls a
+font through the localization hook.
 
-If `Str0` is empty, `FLOADB` uninstalls any currently installed font.
+## At a Glance
 
-Build Dependencies
-------------------
-* [spasm-ng](https://github.com/alberthdev/spasm-ng) assembler
-* `ti84pce.inc` and project include files in `include/`
+| Item | Value |
+|---|---|
+| Program name | `FLOADB` |
+| Input variable | `Str0` |
+| Output variable | `Ans` |
+| Build artifact | `../build/FLOADB.8xp` |
 
-Building
---------
-1. Open a terminal in the `floadb` folder.
-2. Run `build.bat`.
-3. Output program: `../build/FLOADB.8xp` (See the `build` directory in the main project root folder)
+## Quick Start
 
-Input and Output
-----------------
-**Input:**
-* `Str0` = font name to load
-* `Str0=""` = uninstall currently installed font
+1. Build `FLOADB.8xp` from this folder:
 
-**Output (stored to `Ans`):**
-* `0` = success (install or uninstall)
-* `1` = failure (not found, invalid source, bad format, or other load failure)
-
-Name Format
------------
-`FLOADB` supports loading from either a direct AppVar/program name or a group member path:
-
-* Direct name (example): `"ComicSan"`
-* Group path (example): `"FONTGRPT/ARIAL"`
-
-The slash `/` separates group name and member name.
-
-Basic Usage Example
--------------------
-```
-"ComicSan"->Str0
-Asm(prgmFLOADB
-If Ans=0
-Then
- Disp "Font loaded"
- Disp "Sample: ABC abc 123"
-Else
- Disp "Load failed"
- Disp Ans
-End
-
-""->Str0
-Asm(prgmFLOADB
-If Ans=0
-Then
- Disp "Font uninstalled"
-Else
- Disp "Uninstall failed"
- Disp Ans
-End
+```bat
+build.bat
 ```
 
-Test Program
-------------
-An ASCII-only tester is provided at `tests/TESTFLO.txt`. For convenience, the
-following binaries are also supplied:
-* The compiled tester `tests/TESTFLO.8xp`
-* The AppVar font file `tests/ComicSan.8xp`
-* A group file `tests/FONTGRPT.8xg` containing the font programs `ARIAL`, `COMICSAN`, and `OPENSANS`
+2. Transfer `build/FLOADB.8xp` to calculator.
+3. In TI-BASIC, set `Str0` and run `Asm(prgmFLOADB`.
 
-The tester checks:
-* Missing font error path
-* AppVar install (`ComicSan`)
-* Group member installs (`FONTGRPT/ARIAL`, `FONTGRPT/OPENSANS`)
-* Empty `Str0` uninstall path
-* Missing group member error path
-* Font uninstall
+## Inputs
 
-Expected Return Codes in Tests
-------------------------------
-* Success cases: `Ans=0`
-* Failure cases: `Ans=1`
+- `Str0` = font source selector
+	- direct variable name (example: `"ComicSan"`)
+	- group path (example: `"FONTGRPT/ARIAL"`)
+- `Str0=""` = uninstall active font
 
-Notes
------
-* Each successful install replaces the previous one.
-* Passing an empty `Str0` explicitly uninstalls the active font.
-* Name length and format must fit TI variable naming constraints.
+## Outputs
+
+- `Ans=0` success
+- `Ans=1` failure (not found, invalid source/type/format, or other load error)
+
+## Usage
+
+```basic
+:"ComicSan"→Str0
+:Asm(prgmFLOADB
+:If Ans=0
+:Then
+: Disp "Font loaded"
+:Else
+: Disp "Load failed"
+: Disp Ans
+:End
+
+:""→Str0
+:Asm(prgmFLOADB
+:If Ans=0
+:Then
+: Disp "Font uninstalled"
+:Else
+: Disp "Uninstall failed"
+: Disp Ans
+:End
+```
+
+## Build
+
+### Requirements
+
+- `spasm-ng` (project expects `../tools/spasm-ng.exe`)
+- repository include files in `../include/`
+
+### Build command
+
+```bat
+build.bat
+```
+
+Produces `../build/FLOADB.8xp`.
+
+## Test
+
+Test assets are in `tests/`:
+
+- `TESTFLO.txt` (source)
+- `TESTFLO.8xp` (compiled tester)
+- `ComicSan.8xv` (AppVar font test asset)
+- `FONTGRPT.8cg` (group test asset containing multiple fonts)
+
+`TESTFLO` checks:
+
+- Missing font path (`Ans=1`)
+- AppVar load (`Ans=0`)
+- Group-member loads (`Ans=0`)
+- Empty `Str0` uninstall (`Ans=0`)
+- Missing group member (`Ans=1`)
+
+## Troubleshooting
+
+- `Ans=1` unexpectedly: verify source variable is archived and has valid font pack data.
+- Group path issues: ensure format is exactly `GROUPNAME/MEMBERNAME`.
+- No visible change after success: run text display tests or switch to home screen output.
+
+## Related Files
+
+- `floadb.asm`
+- `build.bat`
+- `tests/TESTFLO.txt`
+
+## License
+
+See repository root `LICENSE`.

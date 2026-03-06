@@ -1,82 +1,100 @@
 # ttf2calc_gui
 
-A graphical TTF-to-TI-84 CE font pack converter.
+## Overview
 
-## What this tool is for
+`ttf2calc_gui` is the interactive PC-side font editor/exporter for this
+repository. It builds large and small font variants from TTF sources, 
+supports per-glyph nudging, and exports calculator font packs.
 
-`ttf2calc_gui` lets you:
-- Load a font and map it through one of the supported TI encodings.
-- Build **large** and **small** variants separately (font path/name/size/aliasing per variant).
-- Preview glyphs in a zoomable/pannable grid.
-- Nudge individual glyph placement.
-- Export TI font artifacts (currently `.8xp` and `.8xv` paths are implemented).
+## At a Glance
 
-This is intended for creating calculator font packs compatible with the localization-hook-based workflow in this repository.
+| Item | Value |
+|---|---|
+| Entry point | `main.py` |
+| Primary input | `.ttf` files + selected encoding |
+| Project format | `.cefont` |
+| Export targets | `Standalone (8xp)`, `Viewer Only (8xv)` |
+| Output folder | repository root `build/` |
 
-## Requirements
+## Quick Start
 
-- Python 3.10+
-- Pillow (`PIL`)
-- `fontTools` (imported by `core.py`)
-- Windows environment for export toolchain (uses `tools/spasm-ng.exe`)
+From `ttf2calc_gui/`:
 
-## How to run
-
-From the `ttf2calc_gui` folder:
-
-```bash
+```bat
 python main.py
 ```
 
-## How to use
+Then select encoding, configure font variants, and click **EXPORT FONT FILE**.
 
-1. **Project controls**
-   - Use the folder/save buttons to load/save `.cefont` project files.
-   - Project state is stored in `ttf2calc_gui/projects` by default.
+## Inputs
 
-2. **Choose encoding and view**
-   - Select an encoding from the dropdown.
-   - Toggle between `Large` and `Small` view to edit each variant.
+- Font variant settings (for both large and small views):
+  - font directory
+  - font filename
+  - point size
+  - aliasing mode
+- Encoding selection from `src/encodings.json`
+- Optional project file (`.cefont`) for saved state
+- Output target + output basename
 
-3. **Configure font variant**
-   - Set font folder + filename.
-   - Set point size.
-   - Choose aliasing mode.
-   - Changes update rendering state automatically.
+## Outputs
 
-4. **Inspect and edit glyphs**
-   - Click a glyph in the canvas to select it.
-   - Mouse wheel = zoom, left-drag = pan.
-   - Arrow keys nudge selected glyph position.
-   - `Reset Nudging` clears nudges for the active variant.
+- Exported calculator files in root `build/`:
+  - `<NAME>.8xp` for standalone target
+  - `<NAME>.8xv` for viewer-only target
+- Project save files in `projects/` (default location)
 
-5. **Export**
-   - Select output target:
-     - `Standalone (8xp)`
-     - `Viewer Only (8xv)`
-     - `Standalone (C)` (not implemented)
-     - `Viewer Only (C)` (not implemented)
-   - Enter output basename.
-   - Click export.
-   - Status message under the button reports success/failure.
+### Name validation behavior
 
-## What to expect
+- `.8xp` basename: sanitized to alphanumeric, max 8 chars, uppercase in output;
+  cannot begin with a digit
+- `.8xv` basename: must be non-empty ASCII
 
-- Exported artifacts are written to the repository-level `build` folder.
-- `.8xp` naming is sanitized to uppercase alphanumeric, max 8 chars, and cannot start with a digit.
-- `.8xv` naming requires ASCII characters.
-- Some encoding entries may map to multi-codepoint Unicode strings; exporter handles this in comments/metadata.
-- If both large and small variants lack drawable pixels for a mapped codepoint, that mapping is omitted in packed output.
+## Usage
 
-## Current limitations
+1. Load or create a project (`.cefont`).
+2. Choose encoding and active view (`Large` or `Small`).
+3. Configure font path/name, size, aliasing.
+4. Select glyph in canvas; zoom/pan; nudge with arrow keys.
+5. Repeat for both variants as needed.
+6. Choose export target and basename, then export.
 
-- C export targets are placeholders (`NotImplementedError`).
-- Packing/export logic is functional but still evolving with project requirements.
-- Visual/debug formatting and some UI details are development-oriented.
+## Build
 
-## Related files
+### Requirements
 
-- Entry point: `ttf2calc_gui/main.py`
-- UI: `ttf2calc_gui/src/ui.py`
-- Core/render/export: `ttf2calc_gui/src/core.py`
-- Design notes: `ttf2calc_gui/DESIGN.md`
+- Python 3.10+
+- Tkinter (usually bundled with standard Python on Windows)
+- Pillow (`pip install pillow`)
+- fontTools (`pip install fonttools`)
+- `tools/spasm-ng.exe` present for `.8xp` / `.8xv` export
+
+### Implementation notes
+
+Export composes temporary assembly using shared hook components in `lib/lhook/`,
+assembles with `spasm-ng`, and writes final artifacts to root `build/`.
+
+## Test
+
+No formal automated test suite is currently defined for this folder.
+Recommended validation is export + transfer + verification in `viewer` or on-calc.
+
+## Troubleshooting
+
+- Export fails immediately: confirm `tools/spasm-ng.exe` exists.
+- Font load errors: verify font path and filename are valid.
+- Unexpected glyph mapping: confirm selected encoding and mapped characters.
+- C export target selected: C targets are placeholders and currently not implemented.
+
+## Related Files
+
+- `main.py`
+- `src/ui.py`
+- `src/core.py`
+- `src/canvas.py`
+- `src/encodings.json`
+- `DESIGN.md`
+
+## License
+
+See repository root `LICENSE`.

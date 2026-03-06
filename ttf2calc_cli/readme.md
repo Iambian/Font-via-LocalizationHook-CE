@@ -1,98 +1,118 @@
 # ttf2calc_cli
 
-Command-line font builder for Font-via-LocalizationHook-CE.
+## Overview
 
-This folder contains the reworked workflow for the **"Building a font"** process:
-- Convert one TTF into TI-84 Plus CE font data (`obj/*.z80`)
-- Build either a standalone installer program (`.8xp`) or resource AppVar (`.8xv`)
-- Optionally generate C headers used by related tooling
+`ttf2calc_cli` is the script-driven font pack builder. It converts TTF fonts into
+localization-hook-compatible data and produces calculator files for deployment.
 
-## Prerequisites
+## At a Glance
 
-- Python 3.x
-- Pillow (`pip install pillow`)
-- `spasm-ng` available at `../tools/spasm-ng`
-- Source TTF files in `../fonts/`
+| Item | Value |
+|---|---|
+| Primary scripts | `build_standalone.bat`, `build_resource.bat` |
+| Input | TTF files, encoding JSON, font size settings |
+| Output | `.8xp` (standalone) or `.8xv` (viewer resource) |
+| Output folder | `../build/` |
 
-## Quick start
+## Quick Start
 
-From this folder (`ttf2calc_cli`):
+From `ttf2calc_cli/`:
 
-1. Edit font settings in `packer.py` (see configuration below).
-2. Build one of these targets:
-	- Standalone installer: `build_standalone.bat <NAME>`
-	- Resource AppVar: `build_resource.bat <NAME>`
-3. Output is written to `../build/`:
-	- `<NAME>.8xp` for standalone
-	- `<NAME>.8xv` for resource
+```bat
+build_standalone.bat MYFONT
+build_resource.bat MYFONT
+```
 
-If `<NAME>` is omitted for standalone, default output is `FONTHOOK.8xp`.
+Before building, edit `packer.py` configuration values.
 
-## What each script does
+## Inputs
 
-### `build_standalone.bat`
+- Font source files: typically in `../fonts/`
+- Encoding map: `encoding/*.json` or `None` for alphanumeric default
+- Build config in `packer.py`:
+	- `USE_ENCODING_JSON`
+	- `LARGE_FONT_LOCATION`, `LARGE_FONT_SIZE`
+	- `SMALL_FONT_LOCATION`, `SMALL_FONT_SIZE`
 
-Builds a self-installing protected program (`.8xp`) by combining:
-- localization hook loader
-- hook code
-- generated encoding/font data from `packer.py`
+### Encoding JSON format
 
-Result: `../build/<NAME>.8xp` (or `../build/FONTHOOK.8xp` if name omitted)
+Top-level JSON array containing either:
 
-### `build_resource.bat`
+1. String entries (direct character mapping)
+2. Two-item arrays: `[unicode_char_or_codepoint, ti_codepoint_or_char]`
 
-Builds a resource AppVar (`.8xv`) for viewer/manager-style workflows by combining:
-- hook code (no standalone loader)
-- generated encoding/font data from `packer.py`
+Examples:
 
-Result: `../build/<NAME>.8xv` (name is required)
+- `["[", 193]`
+- `[952, 91]`
+
+## Outputs
+
+- Intermediate generated assembly data:
+	- `obj/encodings.z80`
+	- `obj/lfont.z80`
+	- `obj/sfont.z80`
+- Final calculator files in `../build/`:
+	- `<NAME>.8xp` from `build_standalone.bat`
+	- `<NAME>.8xv` from `build_resource.bat`
+	- Default standalone name if omitted: `FONTHOOK.8xp`
+
+## Usage
+
+### `build_standalone.bat <NAME>`
+
+Builds a self-installing protected program (`.8xp`) including loader + hook +
+packed font data.
+
+### `build_resource.bat <NAME>`
+
+Builds a resource AppVar (`.8xv`) containing hook + packed font data.
+`<NAME>` is required.
 
 ### `build_bins.bat`
 
-Not for normal font package output. Generates binary stubs as C headers:
+Builds C header stubs for integration scenarios:
+
 - `../build/resostub.h`
 - `../build/stalstub.h`
 
-These are intended for other build integrations.
+Not needed for normal `.8xp`/`.8xv` output.
 
-## `packer.py` configuration
+## Build
 
-Only edit the variables at the top of `packer.py`:
+### Requirements
 
-- `USE_ENCODING_JSON`
-  - Path to encoding map JSON (example: `encoding/asciish.json`)
-  - Set to `None` to default to alphanumeric only (`0-9A-Za-z`)
-- `LARGE_FONT_LOCATION`, `LARGE_FONT_SIZE`
-- `SMALL_FONT_LOCATION`, `SMALL_FONT_SIZE`
+- Python 3.x
+- Pillow (`pip install pillow`)
+- `spasm-ng` (expected at `../tools/spasm-ng` / `../tools/spasm-ng.exe`)
 
-Running `packer.py` generates:
-- `obj/encodings.z80`
-- `obj/lfont.z80`
-- `obj/sfont.z80`
+### Build process summary
 
-These files are consumed automatically by the batch build scripts.
+Each batch script runs `packer.py`, composes assembly source from shared hook
+parts in `../lib/lhook/`, assembles with `spasm-ng`, then packages with
+`../tools/binconv.py`.
 
-## Encoding JSON format
+## Test
 
-Encoding files are JSON arrays (`ttf2calc_cli/encoding/*.json`) with items that are either:
+No dedicated automated test suite is currently defined for this folder.
+Recommended validation is to transfer output to calculator and verify in
+`viewer` and/or BASIC workflows.
 
-1. **String**
-	- Each character maps to its matching TI codepoint (ASCII-range only)
+## Troubleshooting
 
-2. **Two-item array**
-	- `[unicode_char_or_codepoint, ti_codepoint_or_char]`
-	- Lets you remap characters to non-default TI positions
+- Missing assembler: verify `../tools/spasm-ng` path.
+- Empty or bad output: confirm TTF paths and sizes in `packer.py`.
+- Encoding issues: validate JSON syntax and codepoint mappings.
+- Name errors for `.8xv`: ensure you pass a basename to `build_resource.bat`.
 
-Example from `encoding/asciish.json`:
-- `["[", 193]` maps `[` to TI codepoint `193`
-- `[952, 91]` maps Unicode `952` (θ) to TI codepoint `91`
+## Related Files
 
-## Output locations
+- `packer.py`
+- `build_standalone.bat`
+- `build_resource.bat`
+- `build_bins.bat`
+- `encoding/*.json`
 
-- Intermediate/generated assembly data: `obj/`
-- Final calculator files: `../build/`
+## License
 
-## Notes
-
-- Character visual alignment may require iterating font sizes.
-- Respect font licensing when distributing generated files.
+See repository root `LICENSE`.
