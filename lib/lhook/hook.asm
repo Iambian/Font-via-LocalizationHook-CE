@@ -1,7 +1,7 @@
 ;The following commented-out data will be inserted via batch script
 ;upon building this hook as a resource pack
 ;StandaloneHookStart:
-;.db tExtTok,tAsm84CeCmp,$18,$09,"FNTPK",0,0,0,0,$C9
+;.db tExtTok,tAsm84CeCmp,$18,$09,"FNTPK",0,0,0,0,0,0,0,$C9
 ;
 
 ;The code that follows is position-independant.
@@ -99,7 +99,7 @@ lh_HandleLFont:
 	ld    (lFont_record+1+28),hl
 	ld    (lFont_record+1+28+3),a
 	ld    hl,lFont_record-3
-	ret
+	ret   ;39
       
 lh_configvars:
 lh_datatypes:
