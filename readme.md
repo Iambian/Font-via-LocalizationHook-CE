@@ -78,7 +78,13 @@ See each tool README for full I/O and examples.
 - Pillow (`pip install pillow`)
 - fontTools (`pip install fonttools`) for GUI
 - CE C Toolchain (for rebuilding `viewer`, verified buildable with v12.1)
-- `spasm-ng` (bundled as `tools/spasm-ng.exe` on Windows)
+- `spasm-ng` for pack assembly:
+  - Bundled paths include:
+    - Windows: `tools/spasm-ng.exe`
+    - Linux: `tools/spasm-ng_0.5-beta.3_linux_amd64/spasm`
+    - macOS (x64): `tools/spasm_osx_x64/spasm`
+  - Optional override: `SPASM_NG_PATH`
+  - Fallback accepted by GUI export: `spasm-ng` or `spasm` from `PATH`
 
 ## Build and Test Notes
 

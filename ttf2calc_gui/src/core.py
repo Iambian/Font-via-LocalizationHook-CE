@@ -5,7 +5,7 @@
     core module.
 '''
 
-import json, tempfile, unicodedata, subprocess
+import json, os, platform, shutil, tempfile, unicodedata, subprocess
 from pathlib import Path
 from typing import Optional, List, Callable, Dict, Tuple, TextIO, Set
 from fontTools.ttLib import TTFont
@@ -666,6 +666,58 @@ def export_font_data(
             fileobj.write(hook.read())
         return build_dir
 
+    def _resolve_spasm_ng_path(project_root: Path) -> Path:
+        env_override = os.environ.get("SPASM_NG_PATH", "").strip()
+        if env_override:
+            override_path = Path(env_override).expanduser()
+            if not override_path.exists() or not override_path.is_file():
+                raise FileNotFoundError(
+                    "SPASM_NG_PATH is set but does not point to a valid file: "
+                    f"{override_path}"
+                )
+            return override_path
+
+        system_name = platform.system().lower()
+        bundled_candidates = []
+        if system_name == "windows":
+            bundled_candidates = [
+                project_root / "tools" / "spasm-ng.exe",
+                project_root / "tools" / "spasm-ng",
+            ]
+        elif system_name == "linux":
+            bundled_candidates = [
+                project_root / "tools" / "spasm-ng_0.5-beta.3_linux_amd64" / "spasm",
+                project_root / "tools" / "spasm-ng",
+            ]
+        elif system_name == "darwin":
+            bundled_candidates = [
+                project_root / "tools" / "spasm_osx_x64" / "spasm",
+                project_root / "tools" / "spasm-ng",
+            ]
+        else:
+            bundled_candidates = [project_root / "tools" / "spasm-ng"]
+
+        for candidate in bundled_candidates:
+            if not candidate.exists() or not candidate.is_file():
+                continue
+            if system_name != "windows" and not os.access(candidate, os.X_OK):
+                raise PermissionError(
+                    "Assembler exists but is not executable: "
+                    f"{candidate}. Run chmod +x on this file."
+                )
+            return candidate
+
+        path_candidate = shutil.which("spasm-ng") or shutil.which("spasm")
+        if path_candidate:
+            return Path(path_candidate)
+
+        candidates_text = "\n".join(str(path) for path in bundled_candidates)
+        raise FileNotFoundError(
+            "Assembler not found for this platform. Checked bundled paths:\n"
+            f"{candidates_text}\n"
+            "and PATH entries for 'spasm-ng'/'spasm'."
+        )
+
     def _glyph_label(glyph: str) -> str:
         if len(glyph) == 1 and ord(glyph) > 127:
             try:
@@ -827,72 +879,47 @@ def export_font_data(
             raise ValueError("8xv export name must contain only ASCII characters.")
         return stem
 
+    def _assemble_export(sanitized_name: str, output_suffix: str, using_loader: bool) -> str:
+        project_root = Path(__file__).resolve().parents[2]
+        tool_path = _resolve_spasm_ng_path(project_root)
+        include_path = project_root / "include"
+
+        temp_asm_path = None
+        try:
+            with tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".asm", encoding="utf-8") as asm_file:
+                temp_asm_path = Path(asm_file.name)
+                build_dir = compose_asm_stub(asm_file, using_loader=using_loader, hooktype="lhook")
+                write_packing_stub(asm_file, font_data)
+
+            output_path = build_dir / f"{sanitized_name}.{output_suffix}"
+
+            try:
+                result = subprocess.run(
+                    [str(tool_path), "-E", "-A", "-I", str(include_path), str(temp_asm_path), str(output_path)],
+                    capture_output=True,
+                    text=True,
+                    check=False,
+                )
+            except OSError as exc:
+                raise RuntimeError(f"Failed to execute assembler at {tool_path}: {exc}") from exc
+
+            if result.returncode != 0:
+                stderr = (result.stderr or "").strip()
+                stdout = (result.stdout or "").strip()
+                detail = stderr or stdout or f"spasm-ng exited with {result.returncode}"
+                raise RuntimeError(f"spasm-ng failed: {detail}")
+
+            return str(output_path)
+        finally:
+            if temp_asm_path is not None and temp_asm_path.exists():
+                temp_asm_path.unlink(missing_ok=True)
+
     if export_type == "Standalone (8xp)":
-        project_root = Path(__file__).resolve().parents[2]
-        tool_path = project_root / "tools" / "spasm-ng.exe"
-        if not tool_path.exists():
-            raise FileNotFoundError(f"Assembler not found: {tool_path}")
-
         sanitized_name = _sanitize_8xp_basename(file_name)
-        include_path = project_root / "include"
-
-        temp_asm_path = None
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".asm", encoding="utf-8") as asm_file:
-                temp_asm_path = Path(asm_file.name)
-                build_dir = compose_asm_stub(asm_file, using_loader=True, hooktype="lhook")
-                write_packing_stub(asm_file, font_data)
-
-            output_path = build_dir / f"{sanitized_name}.8xp"
-
-            result = subprocess.run(
-                [str(tool_path),"-E", "-A", "-I", str(include_path), str(temp_asm_path), str(output_path)],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if result.returncode != 0:
-                stderr = result.stderr.strip()
-                stdout = result.stdout.strip()
-                detail = stderr or stdout or f"spasm-ng exited with {result.returncode}"
-                raise RuntimeError(f"spasm-ng failed: {detail}")
-            return str(output_path)
-        finally:
-            if temp_asm_path is not None and temp_asm_path.exists():
-                temp_asm_path.unlink(missing_ok=True)
+        return _assemble_export(sanitized_name, output_suffix="8xp", using_loader=True)
     elif export_type == "Viewer Only (8xv)":
-        project_root = Path(__file__).resolve().parents[2]
-        tool_path = project_root / "tools" / "spasm-ng.exe"
-        if not tool_path.exists():
-            raise FileNotFoundError(f"Assembler not found: {tool_path}")
-
         sanitized_name = _sanitize_8xv_basename(file_name)
-        include_path = project_root / "include"
-
-        temp_asm_path = None
-        try:
-            with tempfile.NamedTemporaryFile(delete=False, mode="w", suffix=".asm", encoding="utf-8") as asm_file:
-                temp_asm_path = Path(asm_file.name)
-                build_dir = compose_asm_stub(asm_file, using_loader=False, hooktype="lhook")
-                write_packing_stub(asm_file, font_data)
-
-            output_path = build_dir / f"{sanitized_name}.8xv"
-
-            result = subprocess.run(
-                [str(tool_path), "-E", "-A", "-I", str(include_path), str(temp_asm_path), str(output_path)],
-                capture_output=True,
-                text=True,
-                check=False,
-            )
-            if result.returncode != 0:
-                stderr = result.stderr.strip()
-                stdout = result.stdout.strip()
-                detail = stderr or stdout or f"spasm-ng exited with {result.returncode}"
-                raise RuntimeError(f"spasm-ng failed: {detail}")
-            return str(output_path)
-        finally:
-            if temp_asm_path is not None and temp_asm_path.exists():
-                temp_asm_path.unlink(missing_ok=True)
+        return _assemble_export(sanitized_name, output_suffix="8xv", using_loader=False)
     elif export_type == "Standalone (C)":
         raise NotImplementedError("C export not yet implemented")
     elif export_type == "Viewer Only (C)":

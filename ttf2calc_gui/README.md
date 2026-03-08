@@ -67,7 +67,23 @@ Then select encoding, configure font variants, and click **EXPORT FONT FILE**.
 - Tkinter (usually bundled with standard Python on Windows)
 - Pillow (`pip install pillow`)
 - fontTools (`pip install fonttools`)
-- `tools/spasm-ng.exe` present for `.8xp` / `.8xv` export
+- `spasm-ng` available by one of these methods (used for `.8xp` / `.8xv` export):
+  - Set `SPASM_NG_PATH` to a specific assembler binary
+  - Bundled tool in this repository:
+    - Windows: `tools/spasm-ng.exe`
+    - Linux: `tools/spasm-ng_0.5-beta.3_linux_amd64/spasm`
+    - macOS (x64): `tools/spasm_osx_x64/spasm`
+  - `spasm-ng` or `spasm` available in your shell `PATH`
+
+### Assembler resolution order
+
+At export time, the GUI resolves assembler location in this order:
+
+1. `SPASM_NG_PATH`
+2. Platform-specific bundled binary in `tools/`
+3. `spasm-ng` / `spasm` from `PATH`
+
+On Linux and macOS, bundled binaries must be executable (`chmod +x ...`).
 
 ### Implementation notes
 
@@ -81,7 +97,9 @@ Recommended validation is export + transfer + verification in `viewer` or on-cal
 
 ## Troubleshooting
 
-- Export fails immediately: confirm `tools/spasm-ng.exe` exists.
+- Export fails immediately: verify assembler resolution in the order above.
+- Linux/macOS permission error: run `chmod +x` on bundled `tools/.../spasm`.
+- Wrong assembler chosen: set `SPASM_NG_PATH` to force a specific binary.
 - Font load errors: verify font path and filename are valid.
 - Unexpected glyph mapping: confirm selected encoding and mapped characters.
 - C export target selected: C targets are placeholders and currently not implemented.
