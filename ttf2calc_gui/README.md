@@ -70,9 +70,9 @@ Then select encoding, configure font variants, and click **EXPORT FONT FILE**.
 - `spasm-ng` available by one of these methods (used for `.8xp` / `.8xv` export):
   - Set `SPASM_NG_PATH` to a specific assembler binary
   - Bundled tool in this repository:
-    - Windows: `tools/spasm-ng.exe`
-    - Linux: `tools/spasm-ng_0.5-beta.3_linux_amd64/spasm`
-    - macOS (x64): `tools/spasm_osx_x64/spasm`
+    - Windows: `tools/spasm/win/spasm.exe`
+    - Linux: `tools/spasm/linux/spasm`
+    - macOS (x64): `tools/spasm/osx/spasm`
   - `spasm-ng` or `spasm` available in your shell `PATH`
 
 ### Assembler resolution order

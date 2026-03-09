@@ -5,12 +5,18 @@
     core module.
 '''
 
-import json, os, platform, shutil, tempfile, unicodedata, subprocess
+import json, sys, tempfile, unicodedata
 from pathlib import Path
 from typing import Optional, List, Callable, Dict, Tuple, TextIO, Set
 from fontTools.ttLib import TTFont
 
 from PIL import Image, ImageFont, ImageDraw
+
+PROJECT_ROOT = Path(__file__).resolve().parents[2]
+if str(PROJECT_ROOT) not in sys.path:
+    sys.path.insert(0, str(PROJECT_ROOT))
+
+from lib.spasm_runner import run_spasm_ng
 
 
 ALIASING_MODES = [
@@ -666,58 +672,6 @@ def export_font_data(
             fileobj.write(hook.read())
         return build_dir
 
-    def _resolve_spasm_ng_path(project_root: Path) -> Path:
-        env_override = os.environ.get("SPASM_NG_PATH", "").strip()
-        if env_override:
-            override_path = Path(env_override).expanduser()
-            if not override_path.exists() or not override_path.is_file():
-                raise FileNotFoundError(
-                    "SPASM_NG_PATH is set but does not point to a valid file: "
-                    f"{override_path}"
-                )
-            return override_path
-
-        system_name = platform.system().lower()
-        bundled_candidates = []
-        if system_name == "windows":
-            bundled_candidates = [
-                project_root / "tools" / "spasm-ng.exe",
-                project_root / "tools" / "spasm-ng",
-            ]
-        elif system_name == "linux":
-            bundled_candidates = [
-                project_root / "tools" / "spasm-ng_0.5-beta.3_linux_amd64" / "spasm",
-                project_root / "tools" / "spasm-ng",
-            ]
-        elif system_name == "darwin":
-            bundled_candidates = [
-                project_root / "tools" / "spasm_osx_x64" / "spasm",
-                project_root / "tools" / "spasm-ng",
-            ]
-        else:
-            bundled_candidates = [project_root / "tools" / "spasm-ng"]
-
-        for candidate in bundled_candidates:
-            if not candidate.exists() or not candidate.is_file():
-                continue
-            if system_name != "windows" and not os.access(candidate, os.X_OK):
-                raise PermissionError(
-                    "Assembler exists but is not executable: "
-                    f"{candidate}. Run chmod +x on this file."
-                )
-            return candidate
-
-        path_candidate = shutil.which("spasm-ng") or shutil.which("spasm")
-        if path_candidate:
-            return Path(path_candidate)
-
-        candidates_text = "\n".join(str(path) for path in bundled_candidates)
-        raise FileNotFoundError(
-            "Assembler not found for this platform. Checked bundled paths:\n"
-            f"{candidates_text}\n"
-            "and PATH entries for 'spasm-ng'/'spasm'."
-        )
-
     def _glyph_label(glyph: str) -> str:
         if len(glyph) == 1 and ord(glyph) > 127:
             try:
@@ -880,9 +834,7 @@ def export_font_data(
         return stem
 
     def _assemble_export(sanitized_name: str, output_suffix: str, using_loader: bool) -> str:
-        project_root = Path(__file__).resolve().parents[2]
-        tool_path = _resolve_spasm_ng_path(project_root)
-        include_path = project_root / "include"
+        include_path = PROJECT_ROOT / "include"
 
         temp_asm_path = None
         try:
@@ -893,22 +845,12 @@ def export_font_data(
 
             output_path = build_dir / f"{sanitized_name}.{output_suffix}"
 
-            try:
-                result = subprocess.run(
-                    [str(tool_path), "-E", "-A", "-I", str(include_path), str(temp_asm_path), str(output_path)],
-                    capture_output=True,
-                    text=True,
-                    check=False,
-                )
-            except OSError as exc:
-                raise RuntimeError(f"Failed to execute assembler at {tool_path}: {exc}") from exc
-
-            if result.returncode != 0:
-                stderr = (result.stderr or "").strip()
-                stdout = (result.stdout or "").strip()
-                detail = stderr or stdout or f"spasm-ng exited with {result.returncode}"
-                raise RuntimeError(f"spasm-ng failed: {detail}")
-
+            run_spasm_ng(
+                project_root=PROJECT_ROOT,
+                input_asm_path=temp_asm_path,
+                output_path=output_path,
+                include_dirs=[include_path],
+            )
             return str(output_path)
         finally:
             if temp_asm_path is not None and temp_asm_path.exists():

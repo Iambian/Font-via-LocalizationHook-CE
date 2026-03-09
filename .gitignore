@@ -8,3 +8,5 @@
 /ttf2calc_cli/obj
 /ttf2calc_gui/projects
 /ttf2calc_gui/src/__pycache__
+/lib/__pycache__/*.pyc
+*.pyc

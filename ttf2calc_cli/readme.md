@@ -9,7 +9,7 @@ localization-hook-compatible data and produces calculator files for deployment.
 
 | Item | Value |
 |---|---|
-| Primary scripts | `build_standalone.bat`, `build_resource.bat` |
+| Primary script | `builder.py` |
 | Input | TTF files, encoding JSON, font size settings |
 | Output | `.8xp` (standalone) or `.8xv` (viewer resource) |
 | Output folder | `../build/` |
@@ -18,12 +18,13 @@ localization-hook-compatible data and produces calculator files for deployment.
 
 From `ttf2calc_cli/`:
 
-```bat
-build_standalone.bat MYFONT
-build_resource.bat MYFONT
+```bash
+python builder.py MYFONT
+python builder.py --resource MYFONT
 ```
 
-Before building, edit `packer.py` configuration values.
+`MYFONT` is required for all modes.
+If no mode flag is given, `builder.py` defaults to standalone `.8xp` output.
 
 ## Inputs
 
@@ -53,30 +54,43 @@ Examples:
 	- `obj/lfont.z80`
 	- `obj/sfont.z80`
 - Final calculator files in `../build/`:
-	- `<NAME>.8xp` from `build_standalone.bat`
-	- `<NAME>.8xv` from `build_resource.bat`
-	- Default standalone name if omitted: `FONTHOOK.8xp`
+	- `<NAME>.8xp` from `python builder.py <NAME>`
+	- `<NAME>.8xv` from `python builder.py --resource <NAME>`
 
 ## Usage
 
-### `build_standalone.bat <NAME>`
+### `python builder.py <NAME>`
 
 Builds a self-installing protected program (`.8xp`) including loader + hook +
 packed font data.
 
-### `build_resource.bat <NAME>`
+### `python builder.py --resource <NAME>`
 
 Builds a resource AppVar (`.8xv`) containing hook + packed font data.
-`<NAME>` is required.
 
-### `build_bins.bat`
+### `python builder.py --bins <NAME>`
 
-Builds C header stubs for integration scenarios:
+Builds C header stubs in `../build/`:
 
-- `../build/resostub.h`
-- `../build/stalstub.h`
+- `<NAME>_resostub.h`
+- `<NAME>_stalstub.h`
 
-Not needed for normal `.8xp`/`.8xv` output.
+### Optional overrides
+
+`builder.py` uses the built-in defaults from `packer.py` unless overridden.
+
+- `--encoding`
+- `--large-font`, `--large-size`
+- `--small-font`, `--small-size`
+- `--hook {lhook,fhook}` (standalone mode)
+- `--quiet`
+
+## Legacy scripts
+
+`build_standalone.bat`, `build_resource.bat`, and `build_bins.bat` are
+deprecated wrapper scripts.
+CLI build workflows are now officially supported through `builder.py` +
+`packer.py` only.
 
 ## Build
 
@@ -84,13 +98,13 @@ Not needed for normal `.8xp`/`.8xv` output.
 
 - Python 3.x
 - Pillow (`pip install pillow`)
-- `spasm-ng` (expected at `../tools/spasm-ng` / `../tools/spasm-ng.exe`)
+- `spasm-ng` (resolved via `SPASM_NG_PATH`, bundled tools, or `PATH`)
 
 ### Build process summary
 
-Each batch script runs `packer.py`, composes assembly source from shared hook
-parts in `../lib/lhook/`, assembles with `spasm-ng`, then packages with
-`../tools/binconv.py`.
+`builder.py` runs `packer.py` functions, composes assembly source from shared
+hook parts in `../lib/`, assembles with the shared cross-platform SPASM runner,
+then packages with `../tools/binconv.py` or `../tools/bin2c.py`.
 
 ## Test
 
@@ -100,17 +114,16 @@ Recommended validation is to transfer output to calculator and verify in
 
 ## Troubleshooting
 
-- Missing assembler: verify `../tools/spasm-ng` path.
+- Missing assembler: verify bundled `../tools/spasm/` paths for your platform.
+- Missing assembler: set `SPASM_NG_PATH`, or verify bundled tools are present and executable.
 - Empty or bad output: confirm TTF paths and sizes in `packer.py`.
 - Encoding issues: validate JSON syntax and codepoint mappings.
-- Name errors for `.8xv`: ensure you pass a basename to `build_resource.bat`.
+- Name errors: ensure you pass `<NAME>` (required for all modes).
 
 ## Related Files
 
 - `packer.py`
-- `build_standalone.bat`
-- `build_resource.bat`
-- `build_bins.bat`
+- `builder.py`
 - `encoding/*.json`
 
 ## License

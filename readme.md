@@ -27,13 +27,14 @@ The tools in this repository either:
 
 ### 1) Build a font package from TTF (CLI)
 
-```bat
+```bash
 cd ttf2calc_cli
-build_standalone.bat MYFONT
-build_resource.bat MYFONT
+python builder.py MYFONT
+python builder.py --resource MYFONT
 ```
 
-Edit `ttf2calc_cli/packer.py` first to set font files, sizes, and encoding.
+`MYFONT` is required. `builder.py` defaults to standalone `.8xp` mode when no
+mode flag is provided. You can override packer defaults with builder flags.
 
 ### 2) Build a font package with GUI
 
@@ -64,7 +65,7 @@ See each tool README for full I/O and examples.
 | `examples/` | Example prebuilt font files (`.8xp`, `.8xv`) |
 | `fonts/` | Source TTF inputs used by builder tools |
 | `include/` | Assembly include headers (`ti84pce.inc`, macros) |
-| `lib/lhook/` | Shared localization hook assembly components |
+| `lib/` | Shared assembly components |
 | `tools/` | Shared helper scripts and bundled assembler executable |
 | `ttf2calc_cli/` | Command-line TTF-to-pack workflow |
 | `ttf2calc_gui/` | GUI workflow for editing/exporting packs |
@@ -80,13 +81,13 @@ See each tool README for full I/O and examples.
 - CE C Toolchain (for rebuilding `viewer`, verified buildable with v12.1)
 - `spasm-ng` for pack assembly:
   - Bundled paths include:
-    - Windows: `tools/spasm-ng.exe`
-    - Linux: `tools/spasm-ng_0.5-beta.3_linux_amd64/spasm`
-    - macOS (x64): `tools/spasm_osx_x64/spasm`
+    - Windows: `tools/spasm/win/spasm.exe`
+    - Linux: `tools/spasm/linux/spasm`
+    - macOS (x64): `tools/spasm/osx/spasm`
   - Optional override: `SPASM_NG_PATH`
   - Fallback accepted by GUI export: `spasm-ng` or `spasm` from `PATH`
 
-## Build and Test Notes
+## Build and Test Notes.
 
 - Most generated artifacts are written to `build/` at repository root.
   (Notably, the artifacts for `viewer` do not appear in that folder.)
