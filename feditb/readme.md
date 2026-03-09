@@ -22,7 +22,7 @@ inside localization-hook font objects.
 build.bat
 ```
 
-2. Transfer `build/FEDITB.8xp` to calculator.
+2. Transfer `../build/FEDITB.8xp` to calculator.
 3. Set `Str0` and `Ans` in BASIC, then run `Asm(prgmFEDITB`.
 
 ## Inputs
@@ -103,7 +103,7 @@ Write-mode rules:
 
 ### Requirements
 
-- `spasm-ng` (project expects `../tools/spasm-ng.exe`)
+- `spasm-ng` Windows binary at `../tools/spasm/win/spasm.exe`
 - include files in `../include/`
 
 ### Build command

@@ -19,7 +19,7 @@ The tools in this repository either:
 |---|---|---|---|---|
 | `ttf2calc_cli` | Scripted font pack builder | `.ttf` + encoding JSON | `.8xp` / `.8xv` in `build/` | `ttf2calc_cli/readme.md` |
 | `ttf2calc_gui` | Interactive font editor/exporter | `.ttf` + project (`.cefont`) | `.8xp` / `.8xv` in `build/` | `ttf2calc_gui/README.md` |
-| `viewer` | On-calc browser/preview/install tool | Archived font variables | `FONTVIEW.8xp` | `viewer/readme.md` |
+| `viewer` | On-calc browser/preview/install tool | Archived font variables | `viewer/bin/FONTVIEW.8xp` | `viewer/readme.md` |
 | `floadb` | BASIC-callable font installer/uninstaller | `Str0` font name/path | `Ans` result code | `floadb/readme.md` |
 | `feditb` | BASIC-callable glyph read/write utility | `Str0`, `Ans`, `[J]` | updated `[J]`, `Ans` | `feditb/readme.md` |
 
