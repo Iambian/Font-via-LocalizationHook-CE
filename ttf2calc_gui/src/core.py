@@ -208,6 +208,7 @@ class FontData(object):
                 if not self.variant_has_unicode_mapping(variant, char):
                     continue
                 self.base_images[variant][codepoint] = self._render_glyph(
+                    variant=variant,
                     char=char,
                     font_file=font_path,
                     font_size=int(settings["size"]),
@@ -241,6 +242,7 @@ class FontData(object):
 
     def _render_glyph(
         self,
+        variant: str,
         char: str,
         font_file: Path,
         font_size: int,
@@ -262,9 +264,13 @@ class FontData(object):
         src_w = min(mask.width, glyph_w)
         src_h = min(mask.height, glyph_h)
         if src_w > 0 and src_h > 0:
+            x = 0
+            if variant == "large":
+                # Floor-based centering keeps odd extra space on the right (left-biased).
+                x = max(0, (glyph_w - src_w) // 2)
             y = max(0, (glyph_h - src_h) // 2)
             cropped = mask.crop((0, 0, src_w, src_h))
-            out_l.paste(cropped, (0, y))
+            out_l.paste(cropped, (x, y))
 
         threshold = 128
         if aliasing == "Thresholding":
@@ -291,14 +297,14 @@ class AppState(object):
             "large": {
                 "font_path": str((self.root_dir / ".." / "fonts").resolve()),
                 "font_name": "OpenSans.ttf",
-                "size": 12,
+                "size": 14,
                 "aliasing": "Direct 1-Bit",
                 "nudging": {},
             },
             "small": {
                 "font_path": str((self.root_dir / ".." / "fonts").resolve()),
                 "font_name": "OpenSans.ttf",
-                "size": 11,
+                "size": 12,
                 "aliasing": "Direct 1-Bit",
                 "nudging": {},
             },

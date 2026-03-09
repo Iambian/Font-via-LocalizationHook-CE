@@ -66,7 +66,7 @@ See each tool README for full I/O and examples.
 | `fonts/` | Source TTF inputs used by builder tools |
 | `include/` | Assembly include headers (`ti84pce.inc`, macros) |
 | `lib/` | Shared assembly components |
-| `tools/` | Shared helper scripts and bundled assembler executable |
+| `tools/` | Shared helper scripts and bundled assembler executables |
 | `ttf2calc_cli/` | Command-line TTF-to-pack workflow |
 | `ttf2calc_gui/` | GUI workflow for editing/exporting packs |
 | `viewer/` | CE C viewer/installer application |

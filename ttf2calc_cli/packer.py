@@ -12,7 +12,7 @@ left alone unless you know what you're doing.
 
 USE_ENCODING_JSON   = "encoding/asciish.json"
 
-LARGE_FONT_LOCATION = "../fonts/OpenSans.ttf"
+LARGE_FONT_LOCATION = "../fonts/CourierPrimeRegular.ttf"
 LARGE_FONT_SIZE     = 14
 
 SMALL_FONT_LOCATION = "../fonts/OpenSans.ttf"
