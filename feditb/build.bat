@@ -1,2 +1,2 @@
 @echo off
-..\tools\spasm-ng.exe -E -A -I ..\include feditb.asm ..\build\FEDITB.8xp
+..\tools\spasm\win\spasm.exe -E -A -I ..\include feditb.asm ..\build\FEDITB.8xp

@@ -1,2 +1,0 @@
-call packfont
-call build_standalone
