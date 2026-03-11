@@ -85,12 +85,10 @@ Builds C header stubs in `../build/`:
 - `--hook {lhook,fhook}` (standalone mode)
 - `--quiet`
 
-## Legacy scripts
+## Legacy note
 
-`build_standalone.bat`, `build_resource.bat`, and `build_bins.bat` are
-deprecated wrapper scripts.
-CLI build workflows are now officially supported through `builder.py` +
-`packer.py` only.
+Older batch-wrapper workflows have been removed from this folder.
+CLI build workflows are supported through `builder.py` + `packer.py`.
 
 ## Build
 
