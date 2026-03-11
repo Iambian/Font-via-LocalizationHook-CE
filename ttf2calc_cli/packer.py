@@ -12,7 +12,7 @@ left alone unless you know what you're doing.
 
 USE_ENCODING_JSON   = "encoding/asciish.json"
 
-LARGE_FONT_LOCATION = "../fonts/OpenSans.ttf"
+LARGE_FONT_LOCATION = "../fonts/CourierPrimeRegular.ttf"
 LARGE_FONT_SIZE     = 14
 
 SMALL_FONT_LOCATION = "../fonts/OpenSans.ttf"
@@ -154,12 +154,13 @@ def reencode(jsonfilename,outputfilename):
     return ''.join( [c[0] for c in mappings] )
 ''' ~~~~~~~~~~~~~~~~~~~~~~~~~~~ SCRIPT START ~~~~~~~~~~~~~~~~~~~~~~~~~~~~~~ '''
 
-if not os.path.exists("obj"):
-    os.mkdir("obj")
 
-encoding = reencode(USE_ENCODING_JSON,"obj/encodings.z80")
-packit(LARGE_FONT_LOCATION,LARGE_FONT_SIZE,encoding,"obj/lfont.z80",largefontsource)
-packit(SMALL_FONT_LOCATION,SMALL_FONT_SIZE,encoding,"obj/sfont.z80",smallfontsource)
+if __name__ == "__main__":
+    if not os.path.exists("obj"):
+        os.mkdir("obj")
+    encoding = reencode(USE_ENCODING_JSON,"obj/encodings.z80")
+    packit(LARGE_FONT_LOCATION,LARGE_FONT_SIZE,encoding,"obj/lfont.z80",largefontsource)
+    packit(SMALL_FONT_LOCATION,SMALL_FONT_SIZE,encoding,"obj/sfont.z80",smallfontsource)
 
 
 

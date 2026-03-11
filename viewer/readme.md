@@ -11,7 +11,7 @@ font files in-system on the TI-84 Plus CE.
 |---|---|
 | Program name | `FONTVIEW` |
 | Input | Archived font pack variables (`.8xp`, `.8xv`, group members) |
-| Output artifact | `FONTVIEW.8xp` |
+| Output artifact | `bin/FONTVIEW.8xp` |
 | Build system | CE C Toolchain (`make`) |
 
 ## Quick Start
@@ -22,7 +22,7 @@ font files in-system on the TI-84 Plus CE.
 make
 ```
 
-2. Transfer `FONTVIEW.8xp` and font pack files to calculator.
+2. Transfer `bin/FONTVIEW.8xp` and font pack files to calculator.
 3. Run `FONTVIEW` from `[PRGM]`.
 
 ## Inputs
@@ -64,7 +64,7 @@ Controls in `FONTVIEW`:
 make
 ```
 
-Expected output is the calculator program `FONTVIEW.8xp` (prebuilt copy is also
+Expected output is the calculator program `bin/FONTVIEW.8xp` (prebuilt copy is also
 present in `bin/`).
 
 ## Test
@@ -72,7 +72,7 @@ present in `bin/`).
 No separate automated test suite is defined in this folder.
 Recommended validation flow:
 
-1. Transfer `FONTVIEW.8xp` + sample packs from `../examples/`
+1. Transfer `bin/FONTVIEW.8xp` + sample packs from `../examples/`
 2. Verify category scanning and font switching
 3. Verify install/uninstall behavior with `DEL`
 

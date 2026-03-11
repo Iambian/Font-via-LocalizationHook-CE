@@ -22,7 +22,7 @@ font through the localization hook.
 build.bat
 ```
 
-2. Transfer `build/FLOADB.8xp` to calculator.
+2. Transfer `../build/FLOADB.8xp` to calculator.
 3. In TI-BASIC, set `Str0` and run `Asm(prgmFLOADB`.
 
 ## Inputs
@@ -65,7 +65,7 @@ build.bat
 
 ### Requirements
 
-- `spasm-ng` (project expects `../tools/spasm-ng.exe`)
+- `spasm-ng` Windows binary at `../tools/spasm/win/spasm.exe`
 - repository include files in `../include/`
 
 ### Build command

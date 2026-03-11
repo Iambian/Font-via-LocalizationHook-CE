@@ -21,7 +21,12 @@ class FontCanvas(tk.Canvas):
         self._is_panning = False
 
         self.bind("<Configure>", self._on_resize)
+        # Cross-platform wheel events:
+        # - Windows/macOS: <MouseWheel> with event.delta
+        # - Linux/X11: <Button-4> (up) and <Button-5> (down)
         self.bind("<MouseWheel>", self._on_mousewheel)
+        self.bind("<Button-4>", self._on_mousewheel)
+        self.bind("<Button-5>", self._on_mousewheel)
         self.bind("<ButtonPress-1>", self._on_left_press)
         self.bind("<B1-Motion>", self._on_left_drag)
         self.bind("<ButtonRelease-1>", self._on_left_release)
@@ -36,7 +41,18 @@ class FontCanvas(tk.Canvas):
         self.redraw()
 
     def _on_mousewheel(self, event):
-        delta = 1 if event.delta > 0 else -1
+        # Normalize wheel direction across Tk variants.
+        # Linux often uses button events without `delta`.
+        if getattr(event, "num", None) == 4:
+            delta = 1
+        elif getattr(event, "num", None) == 5:
+            delta = -1
+        else:
+            event_delta = getattr(event, "delta", 0)
+            if event_delta == 0:
+                return
+            delta = 1 if event_delta > 0 else -1
+
         current_scale = int(self.app_state.canvas_transform["scale"])
         next_scale = max(1, min(8, current_scale + delta))
         if next_scale == current_scale:

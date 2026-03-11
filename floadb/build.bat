@@ -1,2 +1,2 @@
 @echo off
-..\tools\spasm-ng.exe -E -A -I ..\include floadb.asm ..\build\FLOADB.8xp
+..\tools\spasm\win\spasm.exe -E -A -I ..\include floadb.asm ..\build\FLOADB.8xp
